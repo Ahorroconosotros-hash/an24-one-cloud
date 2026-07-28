@@ -1,10 +1,102 @@
-import { PageHead, Stat, Badge, EmptyLink } from "@/components/UI";
-export default function Dashboard(){return <>
- <PageHead title="Buenos días, Jesús" subtitle="Este es el pulso comercial de AN24 hoy." action="Nueva oportunidad"/>
- <section className="hero"><div><Badge tone="light">RESUMEN DE JULIO</Badge><h2>Tu equipo mantiene un <b>78% de objetivo</b></h2><p>Hay 14 oportunidades listas para cerrar y 6 renovaciones que necesitan seguimiento.</p><button>Ver oportunidades prioritarias</button></div><div className="heroGauge"><span>78%</span><small>Objetivo mensual</small></div></section>
- <section className="stats"><Stat label="Clientes activos" value="1.284" delta="↑ 8,4% este mes" icon="◉"/><Stat label="Pipeline abierto" value="86.450 €" delta="14 cierres probables" icon="◇"/><Stat label="Ventas del mes" value="42.680 €" delta="↑ 12,1% vs. junio" icon="↗"/><Stat label="Tareas pendientes" value="23" delta="6 vencen hoy" icon="◷"/></section>
- <section className="grid2"><article className="panel"><div className="panelHead"><div><h3>Pipeline comercial</h3><p>Valor por fase</p></div><EmptyLink href="/oportunidades" label="Abrir pipeline"/></div><div className="bars">{[["Prospección",78,"28.400 €"],["Propuesta",61,"21.750 €"],["Negociación",46,"19.300 €"],["Cierre",35,"17.000 €"]].map(([n,w,v])=><div className="barRow" key={n as string}><span>{n}</span><div><i style={{width:`${w}%`}}/></div><b>{v}</b></div>)}</div></article>
- <article className="panel"><div className="panelHead"><div><h3>Agenda de hoy</h3><p>Lunes, 20 de julio</p></div><EmptyLink href="/agenda" label="Ver agenda"/></div><div className="agendaList">{[["09:30","Llamada renovación energía","Clínica Dental Sur"],["11:00","Demo TPV","Restaurante Albores"],["13:15","Seguimiento alarma","Estanco La Rotonda"],["17:00","Reunión comercial","Equipo AN24"]].map(x=><div className="agendaRow" key={x[0]}><time>{x[0]}</time><div><b>{x[1]}</b><span>{x[2]}</span></div></div>)}</div></article></section>
- <section className="grid3"><article className="panel span2"><div className="panelHead"><div><h3>Actividad reciente</h3><p>Últimos movimientos del equipo</p></div></div>{[["SR","Sara creó una oportunidad de Telefonía","Bar La Moderna · 2.450 €","Hace 12 min"],["JM","Jesús completó una tarea","Renovación de contrato energético","Hace 38 min"],["AC","Ana subió un documento","Contrato alarma · Cliente 1042","Hace 1 h"],["DR","David cambió una fase","TPV La Esquina → Negociación","Hace 2 h"]].map(x=><div className="activity" key={x[2]}><i>{x[0]}</i><div><b>{x[1]}</b><span>{x[2]}</span></div><time>{x[3]}</time></div>)}</article>
- <article className="panel"><h3>Servicios activos</h3>{[["Energía",412,"⚡"],["Telefonía",365,"☎"],["Alarmas",198,"◆"],["TPV",144,"▣"]].map(x=><div className="serviceLine" key={x[0] as string}><i>{x[2]}</i><span>{x[0]}</span><b>{x[1]}</b></div>)}</article></section>
- </>}
+import Link from "next/link";
+import styles from "./Dashboard.module.css";
+
+const agenda = [
+  ["09:00", "Seguimiento Restaurante La Plaza", "Llamada"],
+  ["11:30", "Reunión con Grupo Sol", "Reunión"],
+  ["13:15", "Enviar propuesta de fibra", "Propuesta"],
+  ["17:00", "Revisión de oportunidades", "Seguimiento"],
+];
+
+const priorities = [
+  ["Transportes López", "Oferta pendiente de aceptación", "3.800 €", "87%"],
+  ["Clínica Dental Sur", "Renovación próxima esta semana", "1.450 €", "72%"],
+  ["Restaurante La Plaza", "Interesado en energía y seguridad", "2.100 €", "64%"],
+];
+
+export default function DashboardPage() {
+  return (
+    <div className={styles.page}>
+      <section className={styles.intro}>
+        <div>
+          <span className={styles.eyebrow}>MI DÍA</span>
+          <h1>Buenos días</h1>
+          <p>Todo lo importante de tu negocio, ordenado para empezar el día con claridad.</p>
+        </div>
+        <Link href="/oportunidades" className={styles.primaryButton}>
+          <span>+</span> Nueva oportunidad
+        </Link>
+      </section>
+
+      <section className={styles.hero}>
+        <div className={styles.heroContent}>
+          <span className={styles.heroLabel}>RESUMEN DE JULIO</span>
+          <h2>Estás cerca de superar<br />tu objetivo mensual.</h2>
+          <p>Hay 14 oportunidades activas y 6 renovaciones que necesitan seguimiento.</p>
+          <Link href="/oportunidades" className={styles.heroLink}>
+            Ver oportunidades prioritarias <span>→</span>
+          </Link>
+        </div>
+        <div className={styles.progressCard}>
+          <div className={styles.progressCircle}><span>78%</span></div>
+          <div><strong>Objetivo mensual</strong><p>42.680 € de 54.700 €</p></div>
+        </div>
+      </section>
+
+      <section className={styles.statsGrid}>
+        <article className={styles.statCard}><div className={styles.statTop}><span className={styles.statIcon}>↗</span><span className={styles.positive}>+12,1%</span></div><p>Ventas del mes</p><strong>42.680 €</strong><small>Frente al mes anterior</small></article>
+        <article className={styles.statCard}><div className={styles.statTop}><span className={styles.statIcon}>◎</span><span className={styles.positive}>+8,4%</span></div><p>Clientes activos</p><strong>1.284</strong><small>108 nuevos este mes</small></article>
+        <article className={styles.statCard}><div className={styles.statTop}><span className={styles.statIcon}>◇</span><span className={styles.neutral}>14 cierres</span></div><p>Pipeline abierto</p><strong>86.450 €</strong><small>Valor comercial estimado</small></article>
+        <article className={styles.statCard}><div className={styles.statTop}><span className={styles.statIcon}>◷</span><span className={styles.warning}>6 hoy</span></div><p>Tareas pendientes</p><strong>23</strong><small>Requieren seguimiento</small></article>
+      </section>
+
+      <section className={styles.mainGrid}>
+        <article className={styles.panel}>
+          <div className={styles.panelHeader}><div><span className={styles.panelEyebrow}>AGENDA</span><h3>Hoy</h3></div><Link href="/agenda">Ver agenda</Link></div>
+          <div className={styles.agendaList}>
+            {agenda.map(([time, title, type]) => (
+              <div className={styles.agendaItem} key={`${time}-${title}`}>
+                <div className={styles.time}><strong>{time}</strong><span /></div>
+                <div className={styles.agendaText}><strong>{title}</strong><span>{type}</span></div>
+                <Link href="/agenda" aria-label={`Abrir ${title}`}>→</Link>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className={styles.aiPanel}>
+          <div className={styles.aiHeader}><span className={styles.aiIcon}>✦</span><div><span>ONE IA</span><h3>Tu siguiente mejor acción</h3></div></div>
+          <p className={styles.aiMessage}>Empieza llamando a <strong>Transportes López</strong>. La propuesta lleva dos días abierta y tiene una probabilidad de cierre del 87%.</p>
+          <div className={styles.aiMetric}><span>Valor posible hoy</span><strong>3.800 €</strong></div>
+          <Link href="/oportunidades" className={styles.aiButton}>Abrir oportunidad <span>→</span></Link>
+          <div className={styles.aiFooter}><span /> Actualizado hace unos segundos</div>
+        </article>
+      </section>
+
+      <section className={styles.bottomGrid}>
+        <article className={styles.panel}>
+          <div className={styles.panelHeader}><div><span className={styles.panelEyebrow}>PRIORIDADES</span><h3>Oportunidades para cerrar</h3></div><Link href="/oportunidades">Ver todas</Link></div>
+          <div className={styles.priorityList}>
+            {priorities.map(([title, description, value, probability]) => (
+              <Link href="/oportunidades" className={styles.priorityItem} key={title}>
+                <div className={styles.priorityInitial}>{title.charAt(0)}</div>
+                <div className={styles.priorityInfo}><strong>{title}</strong><span>{description}</span></div>
+                <div className={styles.priorityNumbers}><strong>{value}</strong><span>{probability} cierre</span></div>
+              </Link>
+            ))}
+          </div>
+        </article>
+
+        <article className={styles.panel}>
+          <div className={styles.panelHeader}><div><span className={styles.panelEyebrow}>PREVISIÓN</span><h3>Objetivo comercial</h3></div><Link href="/informes">Ver informe</Link></div>
+          <div className={styles.forecast}>
+            <div className={styles.forecastNumbers}><div><span>Conseguido</span><strong>42.680 €</strong></div><div><span>Objetivo</span><strong>54.700 €</strong></div></div>
+            <div className={styles.progressTrack}><div className={styles.progressValue} /></div>
+            <div className={styles.forecastFooter}><span>Faltan 12.020 €</span><strong>78%</strong></div>
+            <div className={styles.forecastMessage}>Manteniendo el ritmo actual, superarás el objetivo en un <strong>6%</strong>.</div>
+          </div>
+        </article>
+      </section>
+    </div>
+  );
+}

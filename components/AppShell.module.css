@@ -1,0 +1,516 @@
+.shell {
+  --one-yellow: #ffd54a;
+  --one-orange: #f5811f;
+  --one-red: #e0342c;
+  --one-black: #1a1a1a;
+  --one-text: #252525;
+  --one-muted: #858585;
+  --one-border: #ececec;
+  --sidebar-width: 272px;
+
+  min-height: 100vh;
+  display: flex;
+  background: #f7f7f7;
+  color: var(--one-text);
+}
+
+.sidebar {
+  position: fixed;
+  z-index: 50;
+  inset: 0 auto 0 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--one-border);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.sidebarHeader {
+  min-height: 92px;
+  padding: 22px 22px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.brandLogo {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  max-width: 46px;
+  min-height: 46px;
+  max-height: 46px;
+  flex: 0 0 46px;
+  display: block;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+
+.brandLogoImage {
+  width: 46px !important;
+  height: 46px !important;
+  max-width: 46px !important;
+  max-height: 46px !important;
+  display: block;
+  object-fit: contain;
+}
+
+.brandText {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.brandText strong {
+  font-size: 1.05rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
+.brandText small {
+  overflow: hidden;
+  color: var(--one-muted);
+  font-size: 0.71rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.closeButton {
+  display: none;
+}
+
+.sidebarBody {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 14px 24px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.navigationGroup + .navigationGroup {
+  margin-top: 25px;
+}
+
+.navigationTitle {
+  margin: 0 12px 8px;
+  color: #aaa;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.navigation {
+  display: grid;
+  gap: 4px;
+}
+
+.navItem {
+  position: relative;
+  min-height: 48px;
+  padding: 0 13px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 13px;
+  color: #686868;
+  text-decoration: none;
+  font-size: 0.87rem;
+  font-weight: 600;
+  transition:
+    color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.navItem:hover {
+  color: var(--one-black);
+  background: #f5f5f5;
+  transform: translateX(2px);
+}
+
+.navIcon {
+  width: 23px;
+  height: 23px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+}
+
+.navItemActive {
+  color: var(--one-black);
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(255, 213, 74, 0.5),
+        rgba(245, 129, 31, 0.34),
+        rgba(224, 52, 44, 0.28)
+      )
+      border-box;
+  border: 1px solid transparent;
+  box-shadow: 0 8px 24px rgba(26, 26, 26, 0.045);
+}
+
+.navItemActive .navIcon {
+  color: var(--one-orange);
+}
+
+.activeIndicator {
+  position: absolute;
+  right: 10px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--one-red);
+  box-shadow: 0 0 0 4px rgba(224, 52, 44, 0.08);
+}
+
+.sidebarFooter {
+  padding: 14px;
+  border-top: 1px solid var(--one-border);
+}
+
+.account {
+  min-height: 62px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 15px;
+  background: #f8f8f8;
+}
+
+.avatar,
+.topbarAvatar {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 800;
+  background: var(--one-black);
+}
+
+.avatar {
+  width: 39px;
+  height: 39px;
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+}
+
+.accountText {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.accountText strong {
+  overflow: hidden;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.accountText span {
+  overflow: hidden;
+  color: var(--one-muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.logoutButton {
+  width: 35px;
+  height: 35px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #969696;
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.logoutButton:hover {
+  color: var(--one-red);
+  background: #fff;
+}
+
+.version {
+  margin: 14px 8px 2px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #868686;
+  font-size: 0.67rem;
+}
+
+.version small {
+  margin-left: auto;
+  color: #aaa;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #31b665;
+  box-shadow: 0 0 0 4px rgba(49, 182, 101, 0.1);
+}
+
+.workspace {
+  width: calc(100% - var(--sidebar-width));
+  min-width: 0;
+  margin-left: var(--sidebar-width);
+}
+
+.topbar {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  min-height: 82px;
+  padding: 0 clamp(22px, 3.5vw, 54px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  border-bottom: 1px solid rgba(234, 234, 234, 0.88);
+  background: rgba(247, 247, 247, 0.86);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.topbarLeft {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.topbarEyebrow {
+  margin: 0 0 3px;
+  color: var(--one-red);
+  font-size: 0.61rem;
+  font-weight: 850;
+  letter-spacing: 0.17em;
+}
+
+.topbarTitle {
+  display: block;
+  overflow: hidden;
+  color: #353535;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.menuButton,
+.closeButton,
+.actionButton {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.menuButton {
+  width: 42px;
+  height: 42px;
+  display: none;
+  place-items: center;
+  border: 1px solid var(--one-border);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionButton {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--one-border);
+  border-radius: 13px;
+  background: #fff;
+  color: #777;
+  transition:
+    color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.actionButton:hover {
+  color: var(--one-black);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(26, 26, 26, 0.06);
+}
+
+.notificationDot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 6px;
+  height: 6px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--one-red);
+  box-sizing: content-box;
+}
+
+.topbarAccount {
+  margin-left: 7px;
+  padding-left: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-left: 1px solid var(--one-border);
+}
+
+.topbarAvatar {
+  width: 38px;
+  height: 38px;
+  font-size: 0.75rem;
+}
+
+.topbarAccount div {
+  display: grid;
+  gap: 2px;
+}
+
+.topbarAccount strong {
+  font-size: 0.75rem;
+}
+
+.topbarAccount small {
+  color: var(--one-muted);
+  font-size: 0.64rem;
+}
+
+.content {
+  min-height: calc(100vh - 82px);
+  padding: clamp(24px, 3.5vw, 54px);
+}
+
+.overlay {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: none;
+  border: 0;
+  padding: 0;
+  background: rgba(20, 20, 20, 0.42);
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(3px);
+  transition: opacity 180ms ease;
+}
+
+.overlayVisible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 1080px) {
+  .sidebar {
+    transform: translateX(-102%);
+    box-shadow: 20px 0 60px rgba(0, 0, 0, 0.12);
+    transition: transform 220ms ease;
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .workspace {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .menuButton,
+  .closeButton {
+    display: grid;
+  }
+
+  .closeButton {
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 11px;
+    color: #777;
+    background: #f5f5f5;
+  }
+
+  .overlay {
+    display: block;
+  }
+}
+
+@media (max-width: 680px) {
+  .topbar {
+    min-height: 72px;
+    padding: 0 17px;
+  }
+
+  .topbarTitle {
+    max-width: 185px;
+  }
+
+  .topbarActions {
+    gap: 5px;
+  }
+
+  .topbarAccount {
+    display: none;
+  }
+
+  .actionButton {
+    width: 39px;
+    height: 39px;
+  }
+
+  .content {
+    min-height: calc(100vh - 72px);
+    padding: 22px 17px 35px;
+  }
+}
+
+@media (max-width: 420px) {
+  .sidebar {
+    width: min(88vw, 320px);
+  }
+
+  .topbarTitle {
+    display: none;
+  }
+
+  .topbarEyebrow {
+    margin: 0;
+    font-size: 0.73rem;
+  }
+
+  .actionButton:first-child {
+    display: none;
+  }
+}

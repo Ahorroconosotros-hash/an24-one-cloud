@@ -1,2 +1,9 @@
 import AppShell from "@/components/AppShell";
-export default function PrivateLayout({children}:{children:React.ReactNode}){return <AppShell>{children}</AppShell>}
+
+type PrivateLayoutProps = {
+  children: React.ReactNode;
+};
+
+export default function PrivateLayout({ children }: PrivateLayoutProps) {
+  return <AppShell>{children}</AppShell>;
+}
