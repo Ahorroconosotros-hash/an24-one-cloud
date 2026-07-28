@@ -1,0 +1,13 @@
+AN24 ONE — SPRINT 4: SERVICIOS DEL CLIENTE
+
+Incluido:
+- Panel visual de servicios activos y oportunidades.
+- Expediente independiente para cada servicio.
+- Pestañas: Resumen, Contrato, Documentos, Seguimiento, Renovaciones, Comisiones, Incidencias e Histórico.
+- Separación definitiva entre documentos generales y documentos de contrato.
+- Alta visual de nuevos servicios mediante ventana modal.
+- Vista de comisiones restringida por perfil.
+- Diseño compacto y adaptable.
+
+Nota: la persistencia definitiva en Supabase continúa pendiente hasta reactivar/configurar el proyecto.
+Los datos añadidos en esta versión son demostrativos y se reinician al recargar.

@@ -1,27 +1,5 @@
-import Link from "next/link";
-import styles from "./Clientes.module.css";
+import ClientesReal from "./ClientesReal";
 
-type EstadoCliente = "Activo" | "Seguimiento" | "Oportunidad" | "Inactivo";
-type Cliente = { id:string; nombre:string; referencia:string; contacto:string; tipo:string; servicios:string[]; estado:EstadoCliente; proximaAccion:string; ultimaActividad:string; comercial:string };
-const clientes:Cliente[]=[
-{id:"clinica-dental-sur",nombre:"Clínica Dental Sur",referencia:"ONE-1042",contacto:"María Gómez",tipo:"Empresa",servicios:["Energía","Telefonía"],estado:"Activo",proximaAccion:"Llamar mañana",ultimaActividad:"Hoy",comercial:"Equipo Empresas"},
-{id:"restaurante-albores",nombre:"Restaurante Albores",referencia:"ONE-1043",contacto:"Juan Manuel Pérez",tipo:"Empresa",servicios:["TPV","Alarmas"],estado:"Activo",proximaAccion:"Revisar contrato",ultimaActividad:"Ayer",comercial:"Equipo Comercios"},
-{id:"estanco-la-rotonda",nombre:"Estanco La Rotonda",referencia:"ONE-1044",contacto:"Carmen Ruiz",tipo:"Autónomo",servicios:["Alarmas","Energía"],estado:"Seguimiento",proximaAccion:"Enviar propuesta",ultimaActividad:"18 jul",comercial:"Equipo Comercios"},
-{id:"gestoria-bahia",nombre:"Gestoría Bahía",referencia:"ONE-1045",contacto:"Antonio López",tipo:"Empresa",servicios:["Certificados"],estado:"Activo",proximaAccion:"Preparar renovación",ultimaActividad:"17 jul",comercial:"Equipo Empresas"},
-{id:"hotel-jerez-centro",nombre:"Hotel Jerez Centro",referencia:"ONE-1046",contacto:"Laura Sánchez",tipo:"Empresa",servicios:["Energía","Fibra"],estado:"Oportunidad",proximaAccion:"Confirmar reunión",ultimaActividad:"15 jul",comercial:"Equipo Empresas"},
-{id:"farmacia-san-miguel",nombre:"Farmacia San Miguel",referencia:"ONE-1047",contacto:"Rocío Vega",tipo:"Autónomo",servicios:["Telefonía"],estado:"Inactivo",proximaAccion:"Reactivar contacto",ultimaActividad:"14 jul",comercial:"Equipo Profesionales"}
-];
-function EstadoBadge({estado}:{estado:EstadoCliente}){const classes={Activo:styles.estadoActivo,Seguimiento:styles.estadoSeguimiento,Oportunidad:styles.estadoOportunidad,Inactivo:styles.estadoInactivo};return <span className={`${styles.estado} ${classes[estado]}`}><span/>{estado}</span>}
-export default function ClientesPage(){return <div className={styles.page}>
-<section className={styles.heading}><div><span className={styles.eyebrow}>GESTIÓN COMERCIAL</span><h1>Clientes</h1><p>Toda la información comercial y la actividad de tus clientes en un único lugar.</p></div><Link href="/clientes/nuevo" className={styles.primaryButton}><span>+</span>Nuevo cliente</Link></section>
-<section className={styles.statsGrid}>{[
-["◎","+8,4%","Total clientes","1.284","108 nuevos este mes",styles.statTrend],
-["▢","61%","Empresas","786","Clientes profesionales",styles.statLabel],
-["◷","12 hoy","En seguimiento","53","Requieren una próxima acción",styles.statWarning],
-["↗","Potencial","Oportunidades","37","Valor previsto: 86.450 €",styles.statOpportunity]
-].map(([icon,label,title,value,desc,cls])=><article className={styles.statCard} key={title}><div className={styles.statHeader}><span className={styles.statIcon}>{icon}</span><span className={cls}>{label}</span></div><p>{title}</p><strong>{value}</strong><small>{desc}</small></article>)}</section>
-<section className={styles.contentCard}><div className={styles.toolbar}><label className={styles.search}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" placeholder="Buscar por nombre, CIF, teléfono o correo..."/></label><div className={styles.filters}><button className={styles.filterActive}>Todos</button><button>Empresas</button><button>Autónomos</button><button>Seguimiento</button></div><button className={styles.filterButton}><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filtros</button></div>
-<div className={styles.tableHeader}><div><strong>Listado de clientes</strong><span>1.284 registros</span></div><button className={styles.exportButton}>Exportar</button></div>
-<div className={styles.tableWrapper}><table className={styles.table}><thead><tr><th>Cliente</th><th>Contacto</th><th>Tipo</th><th>Servicios</th><th>Estado</th><th>Próxima acción</th><th>Actividad</th><th/></tr></thead><tbody>{clientes.map(cliente=><tr key={cliente.id}><td><Link href={`/clientes/${cliente.id}`} className={styles.clientCell}><span className={styles.clientAvatar}>{cliente.nombre.charAt(0)}</span><span className={styles.clientData}><strong>{cliente.nombre}</strong><small>{cliente.referencia}</small></span></Link></td><td><div className={styles.contactData}><strong>{cliente.contacto}</strong><span>{cliente.comercial}</span></div></td><td><span className={styles.typeBadge}>{cliente.tipo}</span></td><td><div className={styles.services}>{cliente.servicios.map(s=><span key={s}>{s}</span>)}</div></td><td><EstadoBadge estado={cliente.estado}/></td><td><span className={styles.nextAction}>{cliente.proximaAccion}</span></td><td><span className={styles.activity}>{cliente.ultimaActividad}</span></td><td><button className={styles.menuButton}>•••</button></td></tr>)}</tbody></table></div>
-<div className={styles.mobileList}>{clientes.map(cliente=><Link href={`/clientes/${cliente.id}`} className={styles.mobileCard} key={cliente.id}><div className={styles.mobileClientHeader}><span className={styles.clientAvatar}>{cliente.nombre.charAt(0)}</span><div className={styles.clientData}><strong>{cliente.nombre}</strong><small>{cliente.referencia} · {cliente.tipo}</small></div><EstadoBadge estado={cliente.estado}/></div><div className={styles.mobileDetails}><div><span>Contacto</span><strong>{cliente.contacto}</strong></div><div><span>Próxima acción</span><strong>{cliente.proximaAccion}</strong></div></div><div className={styles.mobileServices}>{cliente.servicios.map(s=><span key={s}>{s}</span>)}</div></Link>)}</div>
-<footer className={styles.pagination}><span>Mostrando 1–6 de 1.284 clientes</span><div><button disabled>←</button><button className={styles.currentPage}>1</button><button>2</button><button>3</button><button>→</button></div></footer></section></div>}
+export default function ClientesPage() {
+  return <ClientesReal />;
+}

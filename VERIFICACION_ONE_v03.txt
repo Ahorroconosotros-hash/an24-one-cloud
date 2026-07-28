@@ -1,0 +1,20 @@
+ONE Cloud v0.3 — revisión realizada
+
+Cambios aplicados:
+- Corregido app/layout.tsx: ahora es un Root Layout válido de Next.js con <html> y <body>.
+- Restaurado el AppShell únicamente en las rutas privadas.
+- Login separado del AppShell.
+- Añadido logo horizontal ONE y conservado el icono circular.
+- Nueva pantalla “Mi Día” con resumen mensual, KPIs, agenda, ONE IA, prioridades y previsión.
+- Estilos globales estabilizados en modo claro.
+
+Comprobación realizada:
+- TypeScript: ./node_modules/.bin/tsc --noEmit — correcto, sin errores.
+- El build completo no pudo finalizar en el entorno de entrega porque Next.js intentó descargar el binario SWC para Linux y el repositorio respondió 503. No es un error del código ni afecta al Mac, donde npm instalará el binario de macOS.
+
+Arranque en Mac:
+1. Descomprimir la carpeta.
+2. Abrir Terminal dentro de la carpeta.
+3. npm install
+4. npm run dev -- --webpack
+5. Abrir http://localhost:3000/login

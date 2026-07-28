@@ -1,0 +1,16 @@
+ONE Cloud v0.4 — Módulo Clientes
+
+Comprobaciones realizadas:
+- TypeScript: npx tsc --noEmit -> correcto
+- Rutas incluidas:
+  /clientes
+  /clientes/clinica-dental-sur
+  /clientes/nuevo
+
+Cambios:
+- Nuevo listado premium de clientes
+- KPIs, buscador, filtros, estados y tabla responsive
+- Nueva ficha completa de cliente
+- Contacto rápido, KPIs, servicios, timeline, notas y ONE IA
+- Formulario visual de nuevo cliente
+- AppShell y formato general conservados

@@ -1,0 +1,8 @@
+AN24 ONE CLOUD v1.1 VERIFICADA
+
+Comprobaciones realizadas:
+- npm ci: correcto
+- npm run build: correcto
+- Ruta inicial / redirige a /login
+- Rutas generadas: /login, /dashboard, /clientes, /agenda, /oportunidades, /comerciales, /productos, /servicios, /documentos, /informes, /configuracion
+- Fecha de verificacion: 2026-07-20
