@@ -102,17 +102,17 @@ export default function NuevaOperacionPage(){
     <section className={styles.formCard}>
       <div className={styles.sectionTitle}><b>01</b><div><h2>Cliente y servicio</h2><p>Selecciona el cliente y la línea de negocio.</p></div></div>
       <div className={styles.grid3}>
-        <label className={styles.field} className={styles.field}>Cliente *<input value={client} onChange={e=>setClient(e.target.value)} placeholder="Buscar o escribir cliente"/></label>
-        <label className={styles.field} className={styles.field}>Servicio *<select value={service} onChange={e=>changeService(e.target.value)}>{services.map(s=><option key={s}>{s}</option>)}</select></label>
-        <label className={styles.field} className={styles.field}>Estado<select value={status} onChange={e=>setStatus(e.target.value)}><option>Borrador</option><option>En tramitación</option><option>Activo</option><option>Incidencia</option><option>Finalizado</option></select></label>
+        <label className={styles.field}>Cliente *<input value={client} onChange={e=>setClient(e.target.value)} placeholder="Buscar o escribir cliente"/></label>
+        <label className={styles.field}>Servicio *<select value={service} onChange={e=>changeService(e.target.value)}>{services.map(s=><option key={s}>{s}</option>)}</select></label>
+        <label className={styles.field}>Estado<select value={status} onChange={e=>setStatus(e.target.value)}><option>Borrador</option><option>En tramitación</option><option>Activo</option><option>Incidencia</option><option>Finalizado</option></select></label>
       </div>
     </section>
 
     <section className={styles.formCard}>
       <div className={styles.sectionTitle}><b>02</b><div><h2>Proveedor y producto</h2><p>Solo aparecen proveedores y productos activos del servicio elegido.</p></div></div>
       <div className={styles.grid2}>
-        <label className={styles.field} className={styles.field}>Proveedor *<select value={providerId} onChange={e=>changeProvider(e.target.value)}><option value="">Seleccionar proveedor</option>{availableProviders.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-        <label className={styles.field} className={styles.field}>Producto *<select value={productId} onChange={e=>setProductId(e.target.value)} disabled={!providerId}><option value="">{providerId?"Seleccionar producto":"Primero selecciona proveedor"}</option>{availableProducts.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+        <label className={styles.field}>Proveedor *<select value={providerId} onChange={e=>changeProvider(e.target.value)}><option value="">Seleccionar proveedor</option>{availableProviders.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+        <label className={styles.field}>Producto *<select value={productId} onChange={e=>setProductId(e.target.value)} disabled={!providerId}><option value="">{providerId?"Seleccionar producto":"Primero selecciona proveedor"}</option>{availableProducts.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
       </div>
       {selectedProduct&&<div className={styles.productBox}><div><span>PRODUCTO SELECCIONADO</span><strong>{selectedProvider?.name} · {selectedProduct.name}</strong><small>{selectedProduct.features||"Sin características adicionales"}</small></div><div><span>Comisión AN24</span><strong>{Number(selectedProduct.an24).toFixed(2)} €</strong></div></div>}
     </section>
@@ -120,7 +120,7 @@ export default function NuevaOperacionPage(){
     <section className={styles.formCard}>
       <div className={styles.sectionTitle}><b>03</b><div><h2>Comercial y comisiones</h2><p>ONE aplica la comisión del perfil del comercial automáticamente.</p></div></div>
       <div className={styles.grid4}>
-        <label className={styles.field} className={styles.field}>Comercial *<select value={commercialId} onChange={e=>setCommercialId(e.target.value)}><option value="">Seleccionar comercial</option>{commercials.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        <label className={styles.field}>Comercial *<select value={commercialId} onChange={e=>setCommercialId(e.target.value)}><option value="">Seleccionar comercial</option>{commercials.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <Metric label="Perfil" value={selectedCommercial?profileLabel[selectedCommercial.profile]:"—"}/>
         <Metric label="Comisión comercial" value={`${commercialCommission.toFixed(2)} €`}/>
         <Metric label="Margen AN24" value={`${margin.toFixed(2)} €`} accent/>
@@ -130,9 +130,9 @@ export default function NuevaOperacionPage(){
     <section className={styles.formCard}>
       <div className={styles.sectionTitle}><b>04</b><div><h2>Fechas y seguimiento</h2><p>Contratación y activación quedan separadas para liquidaciones y revisiones.</p></div></div>
       <div className={styles.grid3}>
-        <label className={styles.field} className={styles.field}>Fecha contratación *<input type="date" value={contractDate} onChange={e=>setContractDate(e.target.value)}/></label>
-        <label className={styles.field} className={styles.field}>Fecha activación<input type="date" value={activationDate} onChange={e=>setActivationDate(e.target.value)}/></label>
-        <label className={styles.field} className={styles.field}>Próxima acción<input placeholder="Llamar, solicitar documento..."/></label>
+        <label className={styles.field}>Fecha contratación *<input type="date" value={contractDate} onChange={e=>setContractDate(e.target.value)}/></label>
+        <label className={styles.field}>Fecha activación<input type="date" value={activationDate} onChange={e=>setActivationDate(e.target.value)}/></label>
+        <label className={styles.field}>Próxima acción<input placeholder="Llamar, solicitar documento..."/></label>
       </div>
       <div className={styles.reviewBox}><span>SEGUIMIENTO AUTOMÁTICO</span><strong>REVISAR CONTRATO, POSIBLE CAMBIO CC</strong><small>Se programará a los 6 meses desde la activación cuando conectemos Agenda y Google Calendar.</small></div>
     </section>
