@@ -1,4 +1,166 @@
-import {PageHead,Badge} from "@/components/UI";
-const cols=["Prospección","Propuesta","Negociación","Cierre"];
-const cards=[["Hotel Jerez Centro","Energía + Fibra","9.800 €","Sara R."],["Farmacia Central","Telefonía","3.240 €","David R."],["Bar La Moderna","Alarma","2.450 €","Ana C."],["Restaurante Albores","TPV","4.200 €","Jesús M."],["Clínica Dental Sur","Renovación energía","7.600 €","Sara R."],["Grupo Solera","Telefonía empresa","12.400 €","Jesús M."],["Estanco La Rotonda","Alarma Grado 2","1.980 €","Ana C."],["Hotel Bahía","Energía","15.300 €","Sara R."]];
-export default function Oportunidades(){return <><PageHead title="Pipeline comercial" subtitle="86.450 € abiertos · 14 cierres probables." action="Nueva oportunidad"/><div className="kanban">{cols.map((c,i)=><section key={c}><header><div><b>{c}</b><span>{["31.250 €","22.040 €","19.860 €","13.300 €"][i]}</span></div><i>{[8,6,5,3][i]}</i></header>{cards.slice(i*2,i*2+2).map(x=><article key={x[0]}><div className="cardTop"><Badge tone={["blue","purple","orange","green"][i]}>{x[1]}</Badge><span>•••</span></div><h3>{x[0]}</h3><strong>{x[2]}</strong><footer><i>{x[3].split(" ").map(s=>s[0]).join("")}</i><span>{x[3]}</span><small>{[20,45,70,90][i]}%</small></footer></article>)}</section>)}</div></>}
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import {
+  OpportunityRecord,
+  OpportunityStage,
+  deleteOpportunity,
+  loadOpportunities,
+  updateOpportunityStage,
+} from "@/lib/oportunidades";
+import styles from "./Oportunidades.module.css";
+
+const columns: { stage: OpportunityStage; label: string; hint: string }[] = [
+  { stage: "Borrador", label: "Detectadas", hint: "Negocios por preparar" },
+  { stage: "Propuesta", label: "Propuestas", hint: "Esperando respuesta" },
+  { stage: "Aceptada", label: "Aceptadas", hint: "Listas para completar datos" },
+  { stage: "Perdida", label: "No cerradas", hint: "Para revisar o recuperar" },
+];
+
+export default function OportunidadesPage() {
+  const [records, setRecords] = useState<OpportunityRecord[]>([]);
+  const [query, setQuery] = useState("");
+
+  function reload() {
+    setRecords(loadOpportunities());
+  }
+
+  useEffect(() => {
+    reload();
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return records;
+    return records.filter((item) =>
+      [item.clientName, item.service, item.title, item.reference, item.commercial]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [records, query]);
+
+  const totalValue = records
+    .filter((item) => item.stage !== "Perdida")
+    .reduce((sum, item) => sum + item.value, 0);
+  const weightedValue = records
+    .filter((item) => item.stage !== "Perdida")
+    .reduce((sum, item) => sum + item.value * (item.probability / 100), 0);
+  const accepted = records.filter((item) => item.stage === "Aceptada").length;
+
+  function move(id: string, stage: OpportunityStage) {
+    updateOpportunityStage(id, stage);
+    reload();
+  }
+
+  function remove(id: string) {
+    if (!window.confirm("¿Eliminar esta oportunidad?")) return;
+    deleteOpportunity(id);
+    reload();
+  }
+
+  return (
+    <main className={styles.page}>
+      <header className={styles.hero}>
+        <div>
+          <span>ONE · NEGOCIOS</span>
+          <h1>Oportunidades</h1>
+          <p>Visualiza qué negocios están naciendo, cuáles esperan respuesta y cuáles ya han sido aceptados.</p>
+        </div>
+        <Link className={styles.primary} href="/oportunidades/nuevo">
+          + Nuevo negocio
+        </Link>
+      </header>
+
+      <section className={styles.kpis}>
+        <Kpi label="Pipeline abierto" value={formatMoney(totalValue)} note="Sin oportunidades perdidas" />
+        <Kpi label="Valor ponderado" value={formatMoney(weightedValue)} note="Según probabilidad" />
+        <Kpi label="Aceptadas" value={accepted} note="Pendientes de completar datos" />
+        <Kpi label="Negocios activos" value={records.filter((item) => item.stage !== "Perdida").length} note="En todo el pipeline" />
+      </section>
+
+      <section className={styles.toolbar}>
+        <div>
+          <h2>Tablero comercial</h2>
+          <p>La oportunidad avanza cambiando de estado, no duplicando información.</p>
+        </div>
+        <label className={styles.search}>
+          <span>⌕</span>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar cliente, servicio o comercial..." />
+        </label>
+      </section>
+
+      <section className={styles.board}>
+        {columns.map((column) => {
+          const cards = filtered.filter((item) => item.stage === column.stage);
+          const value = cards.reduce((sum, item) => sum + item.value, 0);
+          return (
+            <article className={styles.column} key={column.stage}>
+              <header className={styles.columnHead}>
+                <div>
+                  <strong>{column.label}</strong>
+                  <span>{column.hint}</span>
+                </div>
+                <div className={styles.columnMeta}>
+                  <b>{cards.length}</b>
+                  <small>{formatMoney(value)}</small>
+                </div>
+              </header>
+
+              <div className={styles.cards}>
+                {cards.map((item) => (
+                  <div className={styles.card} key={item.id}>
+                    <div className={styles.cardTop}>
+                      <span className={styles.service}>{serviceIcon(item.service)} {item.service}</span>
+                      <small>{item.reference}</small>
+                    </div>
+                    <h3>{item.clientName}</h3>
+                    <p>{item.title}</p>
+                    <div className={styles.valueRow}>
+                      <strong>{formatMoney(item.value)}</strong>
+                      <span>{item.probability}%</span>
+                    </div>
+                    <div className={styles.progress}><i style={{ width: `${item.probability}%` }} /></div>
+                    <div className={styles.nextAction}>
+                      <span>Siguiente acción</span>
+                      <strong>{item.nextAction || "Definir seguimiento"}</strong>
+                      <small>{formatDate(item.nextActionDate)}</small>
+                    </div>
+                    <footer>
+                      <span>{item.commercial || "Sin comercial"}</span>
+                      <div className={styles.actions}>
+                        {item.stage === "Borrador" && <button onClick={() => move(item.id, "Propuesta")}>Preparar propuesta</button>}
+                        {item.stage === "Propuesta" && <button onClick={() => move(item.id, "Aceptada")}>Marcar aceptada</button>}
+                        {item.stage === "Aceptada" && <button onClick={() => move(item.id, "Propuesta")}>Reabrir</button>}
+                        {item.stage === "Perdida" && <button onClick={() => move(item.id, "Borrador")}>Recuperar</button>}
+                        {item.stage !== "Perdida" && <button className={styles.secondary} onClick={() => move(item.id, "Perdida")}>No cerrada</button>}
+                        <button className={styles.danger} onClick={() => remove(item.id)}>×</button>
+                      </div>
+                    </footer>
+                  </div>
+                ))}
+                {!cards.length && <div className={styles.empty}>No hay negocios en esta fase.</div>}
+              </div>
+            </article>
+          );
+        })}
+      </section>
+    </main>
+  );
+}
+
+function Kpi({ label, value, note }: { label: string; value: string | number; note: string }) {
+  return <article className={styles.kpi}><span>{label}</span><strong>{value}</strong><small>{note}</small></article>;
+}
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
+}
+function formatDate(value: string) {
+  if (!value) return "Sin fecha";
+  return new Date(`${value}T12:00:00`).toLocaleDateString("es-ES");
+}
+function serviceIcon(service: string) {
+  const icons: Record<string, string> = { Energía: "⚡", Telefonía: "📱", Alarmas: "🚨", Seguros: "🛡️", Asesoramiento: "🤝", Inmobiliaria: "🏠", IA: "✨" };
+  return icons[service] ?? "◉";
+}

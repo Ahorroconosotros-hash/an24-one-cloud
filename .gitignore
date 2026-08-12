@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Copias locales de ONE
+_backup_*/
+
+# Copias locales de ONE
+_backup_*/
+
+# Copias locales de ONE
+_backup_*/

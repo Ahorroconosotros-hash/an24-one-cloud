@@ -16,7 +16,7 @@ type IconName =
   | "calendar"
   | "products"
   | "team"
-  | "services"
+  | "operations"
   | "documents"
   | "reports"
   | "settings"
@@ -35,20 +35,18 @@ type NavItem = {
 const primaryNavigation: NavItem[] = [
   { href: "/dashboard", label: "Mi Día", icon: "home" },
   { href: "/clientes", label: "Clientes", icon: "clients" },
+  { href: "/operaciones", label: "Operaciones", icon: "operations" },
   { href: "/oportunidades", label: "Oportunidades", icon: "target" },
   { href: "/agenda", label: "Agenda", icon: "calendar" },
 ];
 
 const managementNavigation: NavItem[] = [
-  { href: "/productos", label: "Productos", icon: "products" },
-  { href: "/comerciales", label: "Comerciales", icon: "team" },
-  { href: "/servicios", label: "Servicios", icon: "services" },
-  { href: "/documentos", label: "Documentos", icon: "documents" },
+  { href: "/productos", label: "Productos y Proveedores", icon: "products" },
+  { href: "/documentos", label: "Biblioteca", icon: "documents" },
+  { href: "/configuracion", label: "Campañas y Novedades", icon: "bell" },
+  { href: "/comerciales", label: "Usuarios y Permisos", icon: "team" },
   { href: "/informes", label: "Informes", icon: "reports" },
-];
-
-const secondaryNavigation: NavItem[] = [
-  { href: "/configuracion", label: "Configuración", icon: "settings" },
+  { href: "/configuracion", label: "Automatizaciones", icon: "settings" },
 ];
 
 function Icon({ name }: { name: IconName }) {
@@ -120,10 +118,12 @@ function Icon({ name }: { name: IconName }) {
         </svg>
       );
 
-    case "services":
+    case "operations":
       return (
         <svg {...commonProps}>
-          <path d="M13 2 4.5 13H11l-1 9 8.5-11H12l1-9Z" />
+          <rect x="4" y="3" width="16" height="18" rx="2" />
+          <path d="M8 8h8M8 12h8M8 16h5" />
+          <path d="m15.5 16.5 1.5 1.5 3-3" />
         </svg>
       );
 
@@ -284,7 +284,7 @@ export default function AppShell({ children }: AppShellProps) {
 
             <span className={styles.brandText}>
               <strong>ONE</strong>
-              <small>Todo tu negocio</small>
+              <small>Tu negocio, siempre contigo.</small>
             </span>
           </Link>
 
@@ -312,11 +312,6 @@ export default function AppShell({ children }: AppShellProps) {
             onNavigate={() => setSidebarOpen(false)}
           />
 
-          <NavigationGroup
-            items={secondaryNavigation}
-            pathname={pathname}
-            onNavigate={() => setSidebarOpen(false)}
-          />
         </div>
 
         <div className={styles.sidebarFooter}>
@@ -340,7 +335,7 @@ export default function AppShell({ children }: AppShellProps) {
           <div className={styles.version}>
             <span className={styles.statusDot} />
             <span>ONE Cloud</span>
-            <small>v0.2 Preview</small>
+            <small>v0.3</small>
           </div>
         </div>
       </aside>
@@ -360,7 +355,7 @@ export default function AppShell({ children }: AppShellProps) {
             <div>
               <p className={styles.topbarEyebrow}>ONE</p>
               <strong className={styles.topbarTitle}>
-                Todo tu negocio en un solo lugar
+                Tu negocio, siempre contigo.
               </strong>
             </div>
           </div>

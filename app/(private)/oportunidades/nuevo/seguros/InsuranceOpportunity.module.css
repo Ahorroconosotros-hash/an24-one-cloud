@@ -1,0 +1,258 @@
+.page{width:100%;max-width:1220px;margin:0 auto}.crumb{display:flex;gap:7px;margin-bottom:10px;color:#999;font-size:.6rem}.crumb a{color:#777;text-decoration:none}.hero{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:9px;padding:14px 16px;border:1px solid #ebe7e3;border-radius:14px;background:linear-gradient(135deg,#fff,#fff8ef)}.hero span{color:#e54f31;font-size:.5rem;font-weight:900;letter-spacing:.12em}.hero h1{margin:3px 0;font-size:1.35rem}.hero p{margin:0;color:#888;font-size:.59rem}.flow{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.flow b{padding:5px 7px;border-radius:7px;background:#fff1e9;color:#d65132;font-size:.5rem}.form{display:grid;gap:8px}.form section{border:1px solid #ebe7e3;border-radius:12px;background:#fff;overflow:hidden}.sectionHead{display:flex;justify-content:space-between;align-items:center;padding:8px 11px;border-bottom:1px solid #eee}.sectionHead h2{margin:0;font-size:.68rem}.sectionHead small{color:#999;font-size:.5rem}.grid,.gridFour{padding:9px 11px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.gridFour{grid-template-columns:repeat(4,minmax(0,1fr))}.grid label,.gridFour label,.notes{display:grid;gap:3px;color:#5e5955;font-size:.52rem;font-weight:800}.grid input,.grid select,.gridFour input,.gridFour select{height:32px;min-height:32px;padding:0 8px;border:1px solid #ded8d3;border-radius:7px;background:#fff;font:inherit;font-size:.59rem}.cups{grid-column:span 1}.address{grid-column:span 2}.documentRow{min-height:42px;padding:7px 10px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;border-bottom:1px solid #eee}.documentRow strong{font-size:.57rem}.documentRow select{height:29px;padding:0 7px;border:1px solid #ded8d3;border-radius:7px;font-size:.54rem}.upload{height:29px;padding:0 9px;display:inline-flex;align-items:center;border-radius:7px;background:#fff1e9;color:#d64d2d;font-size:.54rem;font-weight:850;cursor:pointer}.upload input{display:none}.tags{display:flex;gap:4px;flex-wrap:wrap;flex:1}.tags button{min-height:25px;padding:0 6px;border:1px solid #eee4dd;border-radius:6px;background:#faf8f6;font-size:.48rem;cursor:pointer}.notes{padding:8px 10px}.notes textarea{min-height:55px;padding:7px 8px;border:1px solid #ded8d3;border-radius:7px;resize:vertical;font:inherit;font-size:.58rem}.message{margin:0;padding:8px 10px;border-radius:8px;color:#a7422d;background:#fff0eb;font-size:.58rem}.actions{display:flex;justify-content:flex-end;gap:7px}.actions a,.actions button{min-height:35px;padding:0 11px;display:inline-flex;align-items:center;border:1px solid #e5ded8;border-radius:8px;color:#555;background:#fff;text-decoration:none;font-size:.56rem;font-weight:850;cursor:pointer}.actions .primary{border:0;color:#fff;background:linear-gradient(110deg,#ffd54a,#f5811f,#e5482e)}@media(max-width:900px){.hero{align-items:flex-start;flex-direction:column}.gridFour{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.grid,.gridFour{grid-template-columns:1fr}.address,.cups{grid-column:auto}.sectionHead{align-items:flex-start;flex-direction:column;gap:2px}}
+
+/* v1.2.0 · estados de negocio */
+.statusField{grid-column:span 1}.statusField small{min-height:17px;color:#8d8782;font-size:.46rem;font-weight:600;line-height:1.25}.statusControl{--status-color:#6b7280;height:32px;display:flex;align-items:center;gap:6px;padding:0 7px;border:1px solid color-mix(in srgb,var(--status-color) 35%,#ded8d3);border-radius:7px;background:color-mix(in srgb,var(--status-color) 7%,#fff)}.statusControl>span{width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:var(--status-color);box-shadow:0 0 0 3px color-mix(in srgb,var(--status-color) 15%,transparent)}.statusControl select{width:100%;height:30px!important;min-height:30px!important;padding:0!important;border:0!important;background:transparent!important;color:var(--status-color);font-weight:900;outline:0}.statusControl select option{color:#222;background:#fff}
+
+.lifecycleGrid{
+  padding:12px;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  align-items:stretch;
+}
+.lifecycleGrid label{
+  display:grid;
+  gap:4px;
+  font-size:.58rem;
+  font-weight:800;
+  color:#5d5752;
+}
+.lifecycleGrid label input{
+  min-height:36px;
+  height:36px;
+  padding:0 9px;
+  border:1px solid #ddd5cf;
+  border-radius:8px;
+  background:#fff;
+  font-size:.62rem;
+}
+.lifecycleGrid label input[readonly]{
+  background:#f8f6f4;
+  color:#7a746f;
+}
+.lifecycleGrid label small{
+  font-size:.48rem;
+  color:#99918b;
+  font-weight:600;
+}
+.calculatedCard{
+  min-height:72px;
+  padding:10px;
+  display:grid;
+  align-content:center;
+  gap:3px;
+  border:1px solid #eee5de;
+  border-radius:9px;
+  background:#fffaf6;
+}
+.calculatedCard span{
+  color:#918981;
+  font-size:.49rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+.calculatedCard strong{
+  font-size:.72rem;
+  color:#2f2b28;
+}
+.calculatedCard small{
+  color:#9a928b;
+  font-size:.46rem;
+}
+.churnBox,.churnActive{
+  margin:0 12px 12px;
+  padding:9px 10px;
+  display:grid;
+  gap:8px;
+  border:1px solid #eadfd7;
+  border-radius:9px;
+  background:#fff;
+}
+.churnActive{
+  border-color:#ef9f8f;
+  background:#fff3ef;
+}
+.churnToggle{
+  display:flex!important;
+  align-items:center;
+  gap:9px!important;
+  cursor:pointer;
+}
+.churnToggle input{
+  width:16px!important;
+  height:16px!important;
+  min-height:16px!important;
+  padding:0!important;
+}
+.churnToggle span{
+  display:grid;
+  gap:2px;
+}
+.churnToggle strong{
+  font-size:.62rem;
+  color:#3d3834;
+}
+.churnToggle small{
+  font-size:.49rem;
+  color:#8f8781;
+}
+.churnBox>input,.churnActive>input{
+  min-height:34px;
+  padding:0 9px;
+  border:1px solid #dfd5ce;
+  border-radius:8px;
+  background:#fff;
+  font-size:.58rem;
+}
+@media(max-width:1100px){
+  .lifecycleGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+  .lifecycleGrid{grid-template-columns:1fr}
+}
+
+.addressChoice{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.addressChoice label{display:flex!important;align-items:center!important;gap:6px!important;font-size:.65rem!important;font-weight:800!important}
+.addressChoice input[type="radio"]{width:auto!important;height:auto!important}
+
+/* ONE v0.5.2 — compactación Energía */
+.form{gap:8px!important}
+.form>section{border-radius:12px!important}
+.sectionHead{min-height:38px!important;padding:8px 12px!important}
+.sectionHead h2{font-size:.72rem!important}
+.sectionHead small{font-size:.5rem!important}
+.compactSupply,.compactOffer,.compactDates{
+  padding:9px 12px!important;
+  display:grid;
+  gap:7px 8px;
+  align-items:start;
+}
+.compactSupply{grid-template-columns:1.2fr .72fr .72fr .9fr 1.15fr 1.15fr}
+.compactOffer{grid-template-columns:1fr 1fr 1fr .75fr .7fr .75fr}
+.compactDates{grid-template-columns:repeat(3,minmax(0,1fr))}
+.compactSupply>label,.compactOffer>label,.compactDates>label,.installBlock,.clientAddressPreview{
+  display:grid;gap:4px;min-width:0;font-size:.56rem;font-weight:850;color:#5f5955
+}
+.compactSupply select,.compactSupply input,.compactOffer select,.compactOffer input,.compactDates input,.installAddress input{
+  width:100%;min-width:0;height:34px!important;min-height:34px!important;padding:0 8px!important;border:1px solid #ddd6d0;border-radius:7px!important;background:#fff;font-size:.61rem!important
+}
+.statusControl{height:34px!important;min-height:34px!important}
+.statusControl select{height:32px!important;min-height:32px!important}
+.statusField small{font-size:.45rem!important;line-height:1.15!important;margin-top:1px!important}
+.installBlock{align-content:start}
+.installBlock>span,.clientAddressPreview>span{font-size:.56rem;font-weight:850}
+.addressChoice{height:34px;margin:0!important;display:flex!important;align-items:center!important;gap:10px!important;white-space:nowrap}
+.addressChoice label{display:flex!important;align-items:center!important;gap:4px!important;font-size:.53rem!important;font-weight:750!important}
+.addressChoice input{width:auto!important;height:auto!important;min-height:0!important;padding:0!important}
+.installAddress{grid-column:auto}
+.clientAddressPreview{padding:0 8px;height:34px;border:1px solid #eee6df;border-radius:7px;background:#faf8f6;align-content:center}
+.clientAddressPreview span{display:none}.clientAddressPreview strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.56rem;font-weight:700;color:#817972}
+.compactDates{padding-bottom:7px!important}
+.churnBox,.churnActive{margin:0 12px 9px!important;padding:7px 9px!important;border-radius:8px!important}
+.churnToggle strong{font-size:.56rem!important}.churnToggle small{font-size:.45rem!important}
+.churnBox>input,.churnActive>input{height:32px!important;min-height:32px!important}
+.documentRow{padding:8px 12px!important}
+.notes{min-height:54px!important}
+@media(max-width:1200px){
+  .compactSupply{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .compactOffer{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .compactSupply,.compactOffer,.compactDates{grid-template-columns:1fr 1fr}
+}
+@media(max-width:520px){
+  .compactSupply,.compactOffer,.compactDates{grid-template-columns:1fr}
+}
+
+/* ONE v0.5.3 — más aire, Estado fuera de Cliente y suministro */
+.compactSupply{
+  grid-template-columns:1.35fr .72fr .9fr 1.05fr 1.35fr!important;
+  gap:9px 12px!important;
+  padding:11px 14px!important;
+}
+.compactSupply select,.compactSupply input{
+  height:38px!important;
+  min-height:38px!important;
+}
+.addressChoice{height:38px!important;gap:14px!important}
+.clientAddressPreview{height:38px!important}
+.operationStateSection{padding:0!important;background:#fffaf6!important}
+.operationStateRow{
+  min-height:52px;
+  padding:9px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+}
+.operationStateRow>div:first-child{display:grid;gap:2px}
+.operationStateRow strong{font-size:.66rem}
+.operationStateRow small{font-size:.49rem;color:#918981}
+.operationStateRow .statusControl{width:220px;flex:0 0 220px}
+@media(max-width:1200px){
+  .compactSupply{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:760px){
+  .compactSupply{grid-template-columns:1fr 1fr!important}
+  .operationStateRow{align-items:stretch;flex-direction:column}
+  .operationStateRow .statusControl{width:100%;flex:auto}
+}
+
+/* ONE v0.5.4 cierre Energía */
+.operationStateSection{margin-bottom:8px!important}
+.operationStateRow{min-height:46px!important;padding:7px 14px!important}
+.alternateAddress{margin:0 14px 11px;padding:9px 10px;border-top:1px dashed #eadfd6;display:grid;grid-template-columns:2fr .55fr 1fr 1fr;gap:8px;background:#fffdfb}
+.alternateAddress label{display:grid;gap:4px;font-size:.55rem;font-weight:850;color:#5f5955}
+.alternateAddress input,.alternateAddress select{width:100%;min-width:0;height:35px;min-height:35px;padding:0 8px;border:1px solid #ddd6d0;border-radius:7px;background:#fff;font-size:.6rem}
+@media(max-width:760px){.alternateAddress{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.alternateAddress{grid-template-columns:1fr}}
+
+/* SEGUROS: extensiones sobre la piel maestra de Energía */
+.riskTabs{display:flex;gap:6px;flex-wrap:wrap;padding:9px 12px}
+.riskTab{height:31px;padding:0 11px;border:1px solid #e5ddd6;border-radius:8px;background:#fff;font-size:.56rem;font-weight:850;color:#6b625c;cursor:pointer}
+.riskTabActive{border-color:#ef7d00;background:#fff7ee;color:#d86e00}
+.insuranceGrid{padding:9px 12px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px 8px}
+.insuranceGrid label{display:grid;gap:4px;min-width:0;font-size:.56rem;font-weight:850;color:#5f5955}
+.insuranceGrid input,.insuranceGrid select{width:100%;min-width:0;height:34px;min-height:34px;padding:0 8px;border:1px solid #ddd6d0;border-radius:7px;background:#fff;font-size:.61rem}
+.insuranceGrid .span2{grid-column:span 2}
+.optionalToggle{display:flex;align-items:center;gap:8px;margin:0 12px 9px;padding:7px 9px;border:1px solid #eee5de;border-radius:8px;background:#fffaf6}
+.optionalToggle input{width:auto;height:auto}
+.optionalToggle span{display:grid;gap:2px}.optionalToggle strong{font-size:.56rem}.optionalToggle small{font-size:.45rem;color:#918981}
+.insuranceAddress{padding:9px 12px 2px}
+.insuranceNotes{display:block;width:calc(100% - 24px);min-height:58px;margin:9px 12px;padding:8px;border:1px solid #ddd6d0;border-radius:8px;resize:vertical;font-size:.61rem}
+.moneyHint{padding:0 12px 9px;font-size:.48rem;color:#938a83}
+@media(max-width:1000px){.insuranceGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.insuranceGrid{grid-template-columns:1fr}.insuranceGrid .span2{grid-column:auto}}
+
+/* ONE v0.6.3 — cierre Seguros */
+.riskAddressChoice{display:flex;align-items:center;gap:18px;padding:8px 12px;border-bottom:1px solid #f1ebe6;background:#fffdfb}
+.riskAddressChoice>div{display:grid;gap:2px;margin-right:auto}.riskAddressChoice strong{font-size:.58rem}.riskAddressChoice small{font-size:.46rem;color:#918981}
+.riskAddressChoice label{display:flex;align-items:center;gap:5px;font-size:.53rem;font-weight:750;white-space:nowrap}.riskAddressChoice input{width:auto;height:auto}
+.documentToolbar{display:grid;grid-template-columns:1fr 190px 125px;align-items:center;gap:9px;padding:9px 12px}
+.documentToolbar>div{display:grid;gap:2px}.documentToolbar strong{font-size:.58rem}.documentToolbar small{font-size:.46rem;color:#918981}
+.documentToolbar select{height:34px;border:1px solid #ddd6d0;border-radius:7px;background:#fff;padding:0 8px;font-size:.57rem}
+.documentToolbar .uploadButton{display:flex;align-items:center;justify-content:center;height:34px;box-sizing:border-box;cursor:pointer}
+.documentList{border-top:1px solid #f1ebe6;padding:4px 12px 8px}
+.documentItem{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:7px;padding:6px 0;border-bottom:1px solid #f5f0ec}
+.documentItem:last-child{border-bottom:0}.documentItem>div{display:grid;gap:1px}.documentItem strong{font-size:.54rem}.documentItem small{font-size:.45rem;color:#918981}
+.documentItem button{border:0;background:transparent;font-size:.48rem;color:#9b6b56;cursor:pointer}
+.compactOffer select:disabled{background:#f7f4f1;color:#a79f99}
+@media(max-width:760px){.riskAddressChoice{align-items:flex-start;flex-direction:column;gap:7px}.documentToolbar{grid-template-columns:1fr}.documentToolbar select,.documentToolbar .uploadButton{width:100%}}
+
+
+/* ONE MASTER OPPORTUNITY UI v0.8.0 — patrón visual definitivo */
+:global(:root){--one-orange:#f36b21;--one-orange-soft:#fff7f1;--one-border:#ece7e2;--one-muted:#8f8882;--one-text:#2f2b28}
+.page{max-width:1180px;margin:0 auto;padding:18px 18px 30px}
+.hero{border:1px solid var(--one-border);border-radius:14px;background:#fff;padding:16px 18px;box-shadow:0 1px 2px rgba(30,20,10,.025)}
+.form{display:grid;gap:10px;margin-top:10px}
+.form>section{border:1px solid var(--one-border);border-radius:12px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(30,20,10,.02)}
+.sectionHead{min-height:42px;padding:0 13px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #f0ece8;background:#fff}
+.sectionHead h2{margin:0;font-size:.72rem;font-weight:850;color:var(--one-text)}
+.sectionHead small{font-size:.48rem;color:var(--one-muted)}
+.actions{position:sticky;bottom:0;z-index:3;display:flex;justify-content:flex-end;gap:8px;padding:10px 0;background:linear-gradient(180deg,rgba(250,250,250,0),#fafafa 32%)}
+.primaryButton{border-color:var(--one-orange)!important;background:var(--one-orange)!important;color:#fff!important;font-weight:850!important}
+.secondaryButton{background:#fff!important;border-color:#ddd6d0!important}
+.page input,.page select,.page textarea{outline:none}
+.page input:focus,.page select:focus,.page textarea:focus{border-color:#f2a274!important;box-shadow:0 0 0 2px rgba(243,107,33,.08)!important}
+@media(max-width:760px){.page{padding:10px}.sectionHead{align-items:flex-start;flex-direction:column;padding:9px 12px}.actions{padding-bottom:14px}}
