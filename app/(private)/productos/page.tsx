@@ -270,9 +270,9 @@ export default function Productos(){
       collaborator:Number(form.collaborator)||0,
       priceBase:form.service==="Alarmas" ? Number(form.priceBase)||0 : 0,
       vat:form.service==="Alarmas" ? Number(form.vat)||21 : 21,
-      billingType:form.service==="Alarmas" ? form.billingType : "Único",
+      billingType:(form.service==="Alarmas" ? form.billingType : "Único") as "Mensual" | "Único" | "Ambos",
       monthlyPrice:form.service==="Alarmas" ? Number(form.monthlyPrice)||0 : 0,
-      promoType:form.service==="Alarmas" ? form.promoType : "Ninguna",
+      promoType:(form.service==="Alarmas" ? form.promoType : "Ninguna") as "Ninguna" | "Porcentaje" | "Importe" | "Precio final",
       promoValue:form.service==="Alarmas" ? Number(form.promoValue)||0 : 0,
       promoStart:form.service==="Alarmas" ? form.promoStart : "",
       promoEnd:form.service==="Alarmas" ? form.promoEnd : ""

@@ -1,4 +1,4 @@
-export type OpportunityStage = "Borrador" | "Pendiente" | "En curso" | "Tramitado" | "Activado" | "Rechazado" | "Cancelado" | "Baja" | "Perdida";
+export type OpportunityStage = "Borrador" | "Propuesta" | "Aceptada" | "Pendiente" | "En curso" | "Tramitado" | "Activado" | "Rechazado" | "Cancelado" | "Baja" | "Perdida";
 
 export type OpportunityRecord = {
   id: string;

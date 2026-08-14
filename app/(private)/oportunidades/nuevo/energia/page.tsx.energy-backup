@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
 import { getClient, loadClients } from "@/lib/clientes";
 import { createOpportunity, loadOpportunities, OpportunityDraft, OpportunityStage } from "@/lib/oportunidades";
 import { findEnergyContractByCups } from "@/lib/energy-contracts";
@@ -62,7 +62,7 @@ function normalizeCups(value: string) {
   return value.toUpperCase().replace(/\s+/g, "").trim();
 }
 
-function NewEnergyOpportunityContent() {
+export default function NewEnergyOpportunityPage() {
   const router = useRouter();
   const search = useSearchParams();
   const initialClientId = search.get("cliente") || "";
@@ -436,13 +436,5 @@ function NewEnergyOpportunityContent() {
         </div>
       </form>
     </main>
-  );
-}
-
-export default function NewEnergyOpportunityPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Cargando energía...</div>}>
-      <NewEnergyOpportunityContent />
-    </Suspense>
   );
 }

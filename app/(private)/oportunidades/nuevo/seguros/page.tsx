@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SpainAddressFields from "@/components/SpainAddressFields";
@@ -23,7 +23,7 @@ const DEFAULT_INSURANCE_PROVIDERS:Provider[] = [
 ];
 const DOCUMENT_TYPES=["Póliza","Proyecto","Recibo anterior","DNI/NIE","Ficha técnica","Permiso de circulación","Otro"];
 
-export default function InsuranceOpportunityPage(){
+function InsuranceOpportunityContent(){
   const router=useRouter();
   const search=useSearchParams();
   const clients=useMemo(()=>loadClients(),[]);
@@ -266,4 +266,12 @@ export default function InsuranceOpportunityPage(){
       <div className={styles.actions}><button type="button" className={styles.secondaryButton} onClick={()=>router.back()}>Cancelar</button><button type="submit" className={styles.primaryButton}>Guardar oportunidad</button></div>
     </form>
   </div>;
+}
+
+export default function InsuranceOpportunityPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 24 }}>Cargando seguros...</div>}>
+      <InsuranceOpportunityContent />
+    </Suspense>
+  );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadClients } from "@/lib/clientes";
 import { addClientActivity } from "@/lib/client-activity";
@@ -7,7 +7,7 @@ import styles from "../NuevoNegocio.module.css";
 
 const propertyTypes=["Piso","Casa / Chalet","Local","Nave","Oficina","Terreno","Garaje","Otro"];
 const operations=["Venta","Alquiler"];
-export default function InmobiliariaPage(){
+function InmobiliariaContent(){
  const router=useRouter(); const search=useSearchParams(); const clients=useMemo(()=>loadClients().filter(c=>!c.deletedAt),[]);
  const [clientId,setClientId]=useState(search.get("cliente")||""); const [operation,setOperation]=useState("Venta"); const [propertyType,setPropertyType]=useState("Piso");
  const [cadastralReference,setCadastralReference]=useState("");
@@ -97,4 +97,11 @@ export default function InmobiliariaPage(){
    <div className={styles.actions}><button type="button" onClick={()=>router.back()}>Cancelar</button><button type="button" className={styles.primary} onClick={saveOpportunity}>Guardar oportunidad</button></div>
   </section></div>
  </main>
+}
+export default function InmobiliariaPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 24 }}>Cargando inmobiliaria...</div>}>
+      <InmobiliariaContent />
+    </Suspense>
+  );
 }

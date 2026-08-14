@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { ClientRecord, loadClients } from "@/lib/clientes";
 import { OpportunityDraft, createOpportunity } from "@/lib/oportunidades";
 import styles from "./NuevoNegocio.module.css";
@@ -46,7 +46,7 @@ const fallbackProviders: ProviderOption[] = [
   { id: "sanitas", service: "Seguros", name: "Sanitas", active: true },
 ];
 
-export default function NuevoNegocioPage() {
+function NuevoNegocioContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -199,6 +199,7 @@ export default function NuevoNegocioPage() {
       product,
       title: `${product} · ${service}`,
       value: Number(value || 0),
+      probability: 0,
       stage: asProposal ? "Propuesta" : "Borrador",
       commercial: selectedClient.commercial || "Jesús Martínez",
       nextAction: asProposal ? "Realizar seguimiento de la propuesta" : nextAction,
@@ -456,3 +457,12 @@ export default function NuevoNegocioPage() {
 
 function initials(name: string) { return name.split(" ").slice(0,2).map((item) => item[0]).join("").toUpperCase(); }
 function serviceIcon(service: string) { const icons: Record<string,string> = { Energía:"⚡", Telefonía:"📱", Alarmas:"🚨", Seguros:"🛡️", Asesoramiento:"🤝", Inmobiliaria:"🏠", IA:"✨" }; return icons[service] ?? "◉"; }
+
+
+export default function NuevoNegocioPage() {
+  return (
+    <Suspense fallback={<main style={{padding:"24px"}}>Cargando oportunidad...</main>}>
+      <NuevoNegocioContent />
+    </Suspense>
+  );
+}

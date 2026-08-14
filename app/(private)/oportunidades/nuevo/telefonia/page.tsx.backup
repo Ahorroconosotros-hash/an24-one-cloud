@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadClients } from "@/lib/clientes";
 import { addClientActivity } from "@/lib/client-activity";
@@ -8,7 +8,7 @@ import styles from "../NuevoNegocio.module.css";
 type Line={id:string;number:string;action:"Portabilidad"|"Alta nueva";tariff:string;iccid:string;sim:"SIM"|"eSIM";donor:string;status:string;portDate:string};
 const operators=["Vodafone","Orange","Movistar","DIGI","MásMóvil","Yoigo","Otro"];
 const tariffs=["Ilimitada","100 GB","50 GB","25 GB","Solo voz","Otra"];
-function TelefoniaContent(){
+export default function TelefoniaPage(){
  const router=useRouter(); const search=useSearchParams(); const clients=useMemo(()=>loadClients().filter(c=>!c.deletedAt),[]);
  const [clientId,setClientId]=useState(search.get("cliente")||""); const [mode,setMode]=useState<"Comercial"|"BackOffice">("Comercial");
  const [saleType,setSaleType]=useState("Convergente"); const [operator,setOperator]=useState("Vodafone"); const [fiber,setFiber]=useState("1 Gb"); const [address,setAddress]=useState("");
@@ -39,11 +39,3 @@ function TelefoniaContent(){
   </section><aside className={styles.context}><article className={styles.contextCard}><span>RESUMEN</span><h3>{saleType}</h3><p>{operator} · {lines.length} línea(s)</p><div className={styles.phoneMoney}><small>Mensual IVA incl.</small><strong>{monthlyTotal.toFixed(2)} €</strong><small>Pago único IVA incl.</small><strong>{singleTotal.toFixed(2)} €</strong></div></article><article className={styles.advisor}><span>FILOSOFÍA ONE</span><h4>{mode==="Comercial"?"Vender, no tramitar":"Completar, no volver a picar"}</h4><p>{mode==="Comercial"?"Pide solo lo que el comercial conoce durante la venta. ICCID y datos técnicos quedan para BackOffice.":"BackOffice recibe la venta ya construida y añade únicamente los datos de alta, portabilidad y activación."}</p></article></aside></div>
  </main>
 }
-export default function TelefoniaPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Cargando telefonía...</div>}>
-      <TelefoniaContent />
-    </Suspense>
-  );
-}
-

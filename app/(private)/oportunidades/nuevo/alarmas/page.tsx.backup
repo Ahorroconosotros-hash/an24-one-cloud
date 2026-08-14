@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SpainAddressFields from "@/components/SpainAddressFields";
@@ -90,7 +90,7 @@ function promotionText(base: number, product?: Product) {
   return `-${saving.toFixed(2)} €`;
 }
 
-function AlarmOpportunityContent() {
+export default function AlarmOpportunityPage() {
   const router = useRouter();
   const search = useSearchParams();
   const clients = useMemo(() => loadClients(), []);
@@ -737,12 +737,3 @@ function AlarmOpportunityContent() {
     </div>
   );
 }
-
-export default function AlarmOpportunityPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Cargando alarmas...</div>}>
-      <AlarmOpportunityContent />
-    </Suspense>
-  );
-}
-
