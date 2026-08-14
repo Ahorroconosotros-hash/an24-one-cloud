@@ -402,36 +402,6 @@ function TelefoniaContent() {
         </div>
       </header>
 
-      <div className={styles.phoneRole}>
-        <button
-          type="button"
-          className={
-            mode === "Comercial"
-              ? styles.phoneRoleActive
-              : ""
-          }
-          onClick={() =>
-            setMode("Comercial")
-          }
-        >
-          🟠 Comercial
-        </button>
-
-        <button
-          type="button"
-          className={
-            mode === "BackOffice"
-              ? styles.phoneRoleActive
-              : ""
-          }
-          onClick={() =>
-            setMode("BackOffice")
-          }
-        >
-          🔵 BackOffice
-        </button>
-      </div>
-
       <div className={styles.workspace}>
         <section className={styles.workArea}>
           <article className={styles.block}>
