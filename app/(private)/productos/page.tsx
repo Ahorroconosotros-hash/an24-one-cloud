@@ -19,444 +19,361 @@ type Product = {
   company: string;
   name: string;
   features: string;
-  an24: number;
-  premium: number;
-  advanced: number;
-  standard: number;
-  collaborator: number;
-  priceBase?: number;
-  vat?: number;
-  billingType?: "Único"|"Mensual"|"Ambos";
-  monthlyPrice?: number;
-  promoType?: "Ninguna"|"Porcentaje"|"Importe"|"Precio final";
-  promoValue?: number;
-  promoStart?: string;
-  promoEnd?: string;
   active: boolean;
+  productType?: string;
+  operationType?: string;
+  pvp?: number;
+};
+
+type Mode = "fixed" | "percentage" | "mixed";
+type ProfileKey = "Premium" | "Avanzado" | "Estándar" | "Colaborador";
+
+type ProfileForm = {
+  mode: Mode;
+  fixed: string;
+  percentage: string;
+  base: string;
+  points: string;
+};
+
+type CommissionRule = {
+  id: string;
+  product_id?: string | null;
+  provider_id?: string | null;
+  operation_type?: string | null;
+  fixed_amount?: number | null;
+  percentage?: number | null;
+  recurring_amount?: number | null;
+  points?: number | null;
+  commission_mode?: string | null;
+  percentage_base?: string | null;
+  side?: string | null;
+  role_context?: string | null;
+  recurring_percentage?: number | null;
+  recurring_base?: string | null;
+  active?: boolean | null;
+  config?: Record<string, any> | null;
+};
+
+type CommercialCommissionRule = CommissionRule & {
+  profile_type?: string | null;
 };
 
 const services = ["Energía","Telefonía","Alarmas","Seguros","Asesoramiento","Inmobiliaria","IA"];
 
-const defaultProviders: Provider[] = [
-  {id:"prov-gana",service:"Energía",name:"GANA",active:true},
-  {id:"prov-iberdrola",service:"Energía",name:"IBERDROLA",active:true},
-  {id:"prov-movistar",service:"Telefonía",name:"MOVISTAR",active:true},
-  {id:"prov-vodafone",service:"Telefonía",name:"VODAFONE",active:true},
-  {id:"prov-segurma",service:"Alarmas",name:"SEGURMA",active:true},
+const profiles: { key: ProfileKey; icon: string }[] = [
+  { key: "Premium", icon: "🏆" },
+  { key: "Avanzado", icon: "⭐" },
+  { key: "Estándar", icon: "🔵" },
+  { key: "Colaborador", icon: "🤝" },
 ];
 
-const seed: Product[] = [{
-  id:"gana-24h",
-  service:"Energía",
-  providerId:"prov-gana",
-  company:"GANA",
-  name:"Tarifa 24H",
-  features:"Luz · precio fijo 24 horas",
-  an24:120,
-  premium:55,
-  advanced:50,
-  standard:40,
-  collaborator:35,
-  active:true
-}];
+const emptyProfile = (): ProfileForm => ({
+  mode: "fixed",
+  fixed: "",
+  percentage: "",
+  base: "provider_commission",
+  points: "",
+});
 
 const emptyForm = {
-  service:"Energía",
-  providerId:"",
-  name:"",
-  features:"",
-  an24:"",
-  premium:"",
-  advanced:"",
-  standard:"",
-  collaborator:"",
-  priceBase:"",
-  vat:"21",
-  billingType:"Único",
-  monthlyPrice:"",
-  promoType:"Ninguna",
-  promoValue:"",
-  promoStart:"",
-  promoEnd:""
+  service: "Energía",
+  providerId: "",
+  productType: "Luz",
+  operationType: "Nueva",
+  side: "none",
+  roleContext: "",
+  name: "",
+  features: "",
+  pvp: "",
+  an24Mode: "fixed" as Mode,
+  an24Fixed: "",
+  an24Percentage: "",
+  an24Base: "provider_commission",
+  an24Recurring: "",
+  an24RecurringPercentage: "",
+  an24RecurringBase: "provider_commission",
+  an24Points: "",
+  targetEnabled: false,
+  targetMin: "",
+  targetMax: "",
+  targetBonus: "",
+  acceleratorEnabled: false,
+  acceleratorFrom: "",
+  acceleratorTo: "",
+  acceleratorBonus: "",
+  clawbackEnabled: false,
+  clawbackMonths: "",
+  clawbackPercentage: "100",
 };
 
-function normalizeProduct(p:any): Product {
-  return {
-    id:p.id || crypto.randomUUID(),
-    service:p.service || "Energía",
-    providerId:p.providerId || "",
-    company:p.company || "",
-    name:p.name || "",
-    features:p.features || "",
-    an24:Number(p.an24 ?? 0),
-    premium:Number(p.premium ?? Math.max(Number(p.senior ?? 0),Number(p.junior ?? 0),Number(p.external ?? 0),0)),
-    advanced:Number(p.advanced ?? p.senior ?? 0),
-    standard:Number(p.standard ?? p.junior ?? 0),
-    collaborator:Number(p.collaborator ?? p.external ?? 0),
-    priceBase:Number(p.priceBase ?? 0),
-    vat:Number(p.vat ?? 21),
-    billingType:p.billingType || "Único",
-    monthlyPrice:Number(p.monthlyPrice ?? 0),
-    promoType:p.promoType || "Ninguna",
-    promoValue:Number(p.promoValue ?? 0),
-    promoStart:p.promoStart || "",
-    promoEnd:p.promoEnd || "",
-    active:p.active !== false
-  };
+const box: React.CSSProperties = {
+  gridColumn: "1 / -1",
+  border: "1px solid #ececec",
+  borderRadius: 14,
+  padding: 16,
+  background: "#fafafa",
+};
+
+const grid3: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3,minmax(0,1fr))",
+  gap: 12,
+};
+
+function productTypes(service: string) {
+  switch (service) {
+    case "Telefonía": return ["Móvil","Fibra","Convergente","Línea adicional","OTT"];
+    case "Energía": return ["Luz","Gas","Dual"];
+    case "Inmobiliaria": return ["Piso","Casa / Chalet","Local","Nave","Terreno","Oficina","Garaje","Otro"];
+    case "Seguros": return ["Auto","Hogar","Comercio","Vida","Salud","Mascotas","Otro"];
+    case "Alarmas": return ["Hogar","Negocio","Otro"];
+    default: return ["Servicio"];
+  }
 }
 
+function operationTypes(service: string) {
+  switch (service) {
+    case "Telefonía": return ["Alta nueva","Portabilidad","Línea adicional","Renovación"];
+    case "Energía": return ["Nueva","Cartera","Renovación"];
+    case "Inmobiliaria": return ["Venta","Alquiler"];
+    case "Seguros": return ["Nueva producción","Renovación","Cartera"];
+    case "Alarmas": return ["Alta","Instalación","Recurrente"];
+    default: return ["Nueva"];
+  }
+}
+
+function bases(service: string): [string,string][] {
+  if (service === "Inmobiliaria") return [
+    ["sale_price","Precio de venta"],
+    ["monthly_fee","Renta / cuota"],
+    ["provider_commission","Comisión AN24"],
+    ["custom","Otra base"],
+  ];
+  if (service === "Seguros") return [
+    ["premium","Prima"],
+    ["net_premium","Prima neta"],
+    ["provider_commission","Comisión AN24"],
+    ["custom","Otra base"],
+  ];
+  if (service === "Energía") return [
+    ["provider_commission","Comisión proveedor"],
+    ["invoiced_amount","Facturación / liquidación"],
+    ["monthly_fee","Cuota"],
+    ["custom","Otra base"],
+  ];
+  return [
+    ["provider_commission","Comisión proveedor / AN24"],
+    ["monthly_fee","Cuota mensual"],
+    ["annual_fee","Cuota anual"],
+    ["custom","Otra base"],
+  ];
+}
+
+function profileName(value?: string | null): ProfileKey | null {
+  const v=(value||"").toLowerCase();
+  if(v.includes("premium")) return "Premium";
+  if(v.includes("avanz")) return "Avanzado";
+  if(v.includes("est")) return "Estándar";
+  if(v.includes("colab")) return "Colaborador";
+  return null;
+}
+
+function money(v?: number | null){ return `${Number(v||0).toFixed(2)} €`; }
+
 export default function Productos(){
-  const [items,setItems] = useState<Product[]>(seed);
-  const [providers,setProviders] = useState<Provider[]>(defaultProviders);
-  const [open,setOpen] = useState(false);
-  const [editingId,setEditingId] = useState<string|null>(null);
-  const [query,setQuery] = useState("");
-  const [serviceFilter,setServiceFilter] = useState("Todos");
-  const [statusFilter,setStatusFilter] = useState<"Todos"|"Activos"|"Inactivos">("Todos");
-  const [form,setForm] = useState(emptyForm);
-  const [providersOpen,setProvidersOpen] = useState(false);
-  const [providerEditId,setProviderEditId] = useState<string|null>(null);
-  const [providerForm,setProviderForm] = useState({service:"Energía",name:"",logo:"",referenceOnly:false});
+  const [items,setItems]=useState<Product[]>([]);
+  const [providers,setProviders]=useState<Provider[]>([]);
+  const [commissionRules,setCommissionRules]=useState<CommissionRule[]>([]);
+  const [commercialRules,setCommercialRules]=useState<CommercialCommissionRule[]>([]);
+  const [targetRules,setTargetRules]=useState<any[]>([]);
+  const [acceleratorRules,setAcceleratorRules]=useState<any[]>([]);
+  const [clawbackRules,setClawbackRules]=useState<any[]>([]);
+
+  const [open,setOpen]=useState(false);
+  const [editingId,setEditingId]=useState<string|null>(null);
+  const [query,setQuery]=useState("");
+  const [serviceFilter,setServiceFilter]=useState("Todos");
+  const [statusFilter,setStatusFilter]=useState<"Todos"|"Activos"|"Inactivos">("Todos");
+  const [form,setForm]=useState(emptyForm);
+  const [profileForms,setProfileForms]=useState<Record<ProfileKey,ProfileForm>>({
+    Premium:emptyProfile(),Avanzado:emptyProfile(),Estándar:emptyProfile(),Colaborador:emptyProfile()
+  });
+
+  const [providersOpen,setProvidersOpen]=useState(false);
+  const [providerEditId,setProviderEditId]=useState<string|null>(null);
+  const [providerForm,setProviderForm]=useState({service:"Energía",name:"",logo:"",referenceOnly:false});
 
   useEffect(()=>{
-    const rawProducts = localStorage.getItem("one_product_catalog");
-    let loadedProducts = seed;
-
-    if(rawProducts){
+    let cancelled=false;
+    (async()=>{
       try{
-        const parsed = JSON.parse(rawProducts);
-        loadedProducts = Array.isArray(parsed) ? parsed.map(normalizeProduct) : seed;
-      }catch{}
-    }
+        const r=await fetch("/api/catalog",{cache:"no-store"});
+        const data=await r.json();
+        if(!r.ok||!data.ok) throw new Error(data.error||"No se pudo cargar catálogo");
 
-    const rawProviders = localStorage.getItem("one_provider_catalog");
-    let loadedProviders = defaultProviders;
-
-    if(rawProviders){
-      try{
-        const parsed = JSON.parse(rawProviders);
-        if(Array.isArray(parsed) && parsed.length) loadedProviders = parsed;
-      }catch{}
-    }
-
-    // Migra automáticamente empresas ya usadas en productos para que aparezcan como proveedores.
-    const migrated = [...loadedProviders];
-    loadedProducts.forEach(p=>{
-      if(!p.company) return;
-      const found = migrated.find(x=>x.service===p.service && x.name.toLowerCase()===p.company.toLowerCase());
-      if(!found){
-        migrated.push({id:`prov-${crypto.randomUUID()}`,service:p.service,name:p.company,active:true});
-      }
-    });
-
-    const linkedProducts = loadedProducts.map(p=>{
-      if(p.providerId) return p;
-      const provider = migrated.find(x=>x.service===p.service && x.name.toLowerCase()===p.company.toLowerCase());
-      return {...p,providerId:provider?.id || ""};
-    });
-
-    setProviders(migrated);
-    setItems(linkedProducts);
-    localStorage.setItem("one_provider_catalog",JSON.stringify(migrated));
-    localStorage.setItem("one_product_catalog",JSON.stringify(linkedProducts));
+        const ps:Provider[]=(data.providers||[]).map((p:any)=>({
+          id:p.id, service:p.service||"", name:p.name||"", active:p.active!==false,
+          logo:p.logo||"", referenceOnly:Boolean(p.reference_only)
+        }));
+        const products:Product[]=(data.products||[]).map((p:any)=>({
+          id:p.id,
+          service:p.service||p.category||"",
+          providerId:p.provider_id||"",
+          company:ps.find(x=>x.id===p.provider_id)?.name||"",
+          name:p.name||"",
+          features:p.description||p.config?.features||p.config?.phone_type||"",
+          active:p.active!==false,
+          productType:p.product_type||p.config?.phone_type||"",
+          operationType:p.operation_type||"",
+          pvp:Number(p.pvp||0),
+        }));
+        if(cancelled) return;
+        setProviders(ps); setItems(products);
+        setCommissionRules(data.commissionRules||[]);
+        setCommercialRules(data.commercialCommissionRules||[]);
+        setTargetRules(data.targetRules||[]);
+        setAcceleratorRules(data.acceleratorRules||[]);
+        setClawbackRules(data.clawbackRules||[]);
+      }catch(e){ console.error("ONE Cloud · catálogo",e); if(!cancelled){setProviders([]);setItems([]);} }
+    })();
+    return()=>{cancelled=true};
   },[]);
 
-  const saveProducts = (next:Product[])=>{
-    setItems(next);
-    localStorage.setItem("one_product_catalog",JSON.stringify(next));
-  };
+  const activeProvidersForService=useMemo(()=>providers.filter(p=>p.service===form.service&&p.active&&!p.referenceOnly),[providers,form.service]);
 
-  const saveProviders = (next:Provider[])=>{
-    setProviders(next);
-    localStorage.setItem("one_provider_catalog",JSON.stringify(next));
-  };
-
-  const openProviderCreate=()=>{
-    setProviderEditId(null);
-    setProviderForm({service:"Energía",name:"",logo:"",referenceOnly:false});
-    setProvidersOpen(true);
-  };
-
-  const openProviderEdit=(p:Provider)=>{
-    setProviderEditId(p.id);
-    setProviderForm({service:p.service,name:p.name,logo:p.logo||"",referenceOnly:!!p.referenceOnly});
-    setProvidersOpen(true);
-  };
-
-  const saveProvider=()=>{
-    const name=providerForm.name.trim();
-    if(!name) return;
-    if(providerEditId){
-      const old=providers.find(p=>p.id===providerEditId);
-      saveProviders(providers.map(p=>p.id===providerEditId?{...p,...providerForm,name}:p));
-      if(old && old.name!==name) saveProducts(items.map(x=>x.providerId===providerEditId?{...x,company:name,service:providerForm.service}:x));
-    }else{
-      saveProviders([...providers,{id:crypto.randomUUID(),...providerForm,name,active:true}]);
-    }
-    setProvidersOpen(false);
-  };
-
-  const toggleProvider=(id:string)=>saveProviders(providers.map(p=>p.id===id?{...p,active:!p.active}:p));
-
-  const onProviderLogo=(file?:File)=>{
-    if(!file) return;
-    const reader=new FileReader();
-    reader.onload=()=>setProviderForm(v=>({...v,logo:String(reader.result||"")}));
-    reader.readAsDataURL(file);
-  };
-
-  const activeProvidersForService = useMemo(
-    ()=>providers.filter(p=>p.service===form.service && p.active && !p.referenceOnly),
-    [providers,form.service]
-  );
-
-  const filtered = useMemo(()=>{
+  const filtered=useMemo(()=>{
     const q=query.trim().toLowerCase();
     return items.filter(p=>{
-      const textOk=!q || [p.service,p.company,p.name,p.features].some(v=>v.toLowerCase().includes(q));
-      const serviceOk=serviceFilter==="Todos" || p.service===serviceFilter;
-      const statusOk=statusFilter==="Todos" || (statusFilter==="Activos" ? p.active : !p.active);
-      return textOk && serviceOk && statusOk;
+      const textOk=!q||[p.service,p.company,p.name,p.features].some(v=>String(v||"").toLowerCase().includes(q));
+      const serviceOk=serviceFilter==="Todos"||p.service===serviceFilter;
+      const statusOk=statusFilter==="Todos"||(statusFilter==="Activos"?p.active:!p.active);
+      return textOk&&serviceOk&&statusOk;
     });
   },[items,query,serviceFilter,statusFilter]);
 
+  const resetProfiles=()=>setProfileForms({Premium:emptyProfile(),Avanzado:emptyProfile(),Estándar:emptyProfile(),Colaborador:emptyProfile()});
+
   const openCreate=()=>{
+    const service="Energía";
+    const first=providers.find(p=>p.service===service&&p.active&&!p.referenceOnly);
     setEditingId(null);
-    const first = providers.find(p=>p.service==="Energía" && p.active);
-    setForm({...emptyForm,providerId:first?.id || ""});
-    setOpen(true);
+    setForm({...emptyForm,service,providerId:first?.id||"",productType:productTypes(service)[0],operationType:operationTypes(service)[0]});
+    resetProfiles(); setOpen(true);
   };
 
   const openEdit=(p:Product)=>{
-    setEditingId(p.id);
-    const provider = providers.find(x=>x.id===p.providerId) ||
-      providers.find(x=>x.service===p.service && x.name.toLowerCase()===p.company.toLowerCase());
-    setForm({
-      service:p.service,
-      providerId:provider?.id || "",
-      name:p.name,
-      features:p.features,
-        an24:String(p.an24),
-      premium:String(p.premium),
-      advanced:String(p.advanced),
-      standard:String(p.standard),
-      collaborator:String(p.collaborator),
-      priceBase:String(p.priceBase ?? ""),
-      vat:String(p.vat ?? 21),
-      billingType:p.billingType || "Único",
-      monthlyPrice:String(p.monthlyPrice ?? ""),
-      promoType:p.promoType || "Ninguna",
-      promoValue:String(p.promoValue ?? ""),
-      promoStart:p.promoStart || "",
-      promoEnd:p.promoEnd || ""
+    const main=commissionRules.find(r=>r.product_id===p.id&&r.active!==false);
+    const nextProfiles:Record<ProfileKey,ProfileForm>={Premium:emptyProfile(),Avanzado:emptyProfile(),Estándar:emptyProfile(),Colaborador:emptyProfile()};
+    commercialRules.filter(r=>r.product_id===p.id&&r.active!==false).forEach(r=>{
+      const k=profileName(r.profile_type); if(!k) return;
+      nextProfiles[k]={mode:(r.commission_mode as Mode)||"fixed",fixed:String(r.fixed_amount??""),percentage:String(r.percentage??""),base:r.percentage_base||"provider_commission",points:String(r.points??"")};
     });
-    setOpen(true);
-  };
-
-  const submit=()=>{
-    const provider=providers.find(p=>p.id===form.providerId);
-    if(!provider || !form.name.trim()) return;
-
-    const payload = {
-      service:form.service,
-      providerId:provider.id,
-      company:provider.name,
-      name:form.name.trim(),
-      features:form.features.trim(),
-      an24:Number(form.an24)||0,
-      premium:Number(form.premium)||0,
-      advanced:Number(form.advanced)||0,
-      standard:Number(form.standard)||0,
-      collaborator:Number(form.collaborator)||0,
-      priceBase:form.service==="Alarmas" ? Number(form.priceBase)||0 : 0,
-      vat:form.service==="Alarmas" ? Number(form.vat)||21 : 21,
-      billingType:(form.service==="Alarmas" ? form.billingType : "Único") as "Mensual" | "Único" | "Ambos",
-      monthlyPrice:form.service==="Alarmas" ? Number(form.monthlyPrice)||0 : 0,
-      promoType:(form.service==="Alarmas" ? form.promoType : "Ninguna") as "Ninguna" | "Porcentaje" | "Importe" | "Precio final",
-      promoValue:form.service==="Alarmas" ? Number(form.promoValue)||0 : 0,
-      promoStart:form.service==="Alarmas" ? form.promoStart : "",
-      promoEnd:form.service==="Alarmas" ? form.promoEnd : ""
-    };
-
-    if(editingId){
-      saveProducts(items.map(p=>p.id===editingId ? {...p,...payload} : p));
-    }else{
-      saveProducts([...items,{id:crypto.randomUUID(),...payload,active:true}]);
-    }
-    setOpen(false);
-  };
-
-  const toggleActive=(id:string)=>{
-    saveProducts(items.map(p=>p.id===id ? {...p,active:!p.active} : p));
+    const target=targetRules.find(r=>r.product_id===p.id||r.provider_id===p.providerId);
+    const accelerator=acceleratorRules.find(r=>r.product_id===p.id||r.provider_id===p.providerId);
+    const clawback=clawbackRules.find(r=>r.product_id===p.id||r.provider_id===p.providerId);
+    setEditingId(p.id);
+    setForm({...emptyForm,
+      service:p.service,providerId:p.providerId||"",productType:p.productType||productTypes(p.service)[0],operationType:main?.operation_type||p.operationType||operationTypes(p.service)[0],
+      side:main?.side||"none",roleContext:main?.role_context||"",name:p.name,features:p.features,pvp:String(p.pvp??""),
+      an24Mode:(main?.commission_mode as Mode)||"fixed",an24Fixed:String(main?.fixed_amount??""),an24Percentage:String(main?.percentage??""),an24Base:main?.percentage_base||"provider_commission",
+      an24Recurring:String(main?.recurring_amount??""),an24RecurringPercentage:String(main?.recurring_percentage??""),an24RecurringBase:main?.recurring_base||"provider_commission",an24Points:String(main?.points??""),
+      targetEnabled:Boolean(target),targetMin:String(target?.min_value??target?.config?.min??""),targetMax:String(target?.max_value??target?.config?.max??""),targetBonus:String(target?.bonus_fixed??target?.config?.bonus??""),
+      acceleratorEnabled:Boolean(accelerator),acceleratorFrom:String(accelerator?.threshold??accelerator?.config?.from??""),acceleratorTo:String(accelerator?.config?.to??""),acceleratorBonus:String(accelerator?.bonus_fixed??accelerator?.config?.bonus??""),
+      clawbackEnabled:Boolean(clawback),clawbackMonths:String(clawback?.months??""),clawbackPercentage:String(clawback?.config?.percentage??"100")
+    });
+    setProfileForms(nextProfiles); setOpen(true);
   };
 
   const onServiceChange=(service:string)=>{
-    const first=providers.find(p=>p.service===service && p.active);
-    setForm({...form,service,providerId:first?.id || ""});
+    const first=providers.find(p=>p.service===service&&p.active&&!p.referenceOnly);
+    setForm({...form,service,providerId:first?.id||"",productType:productTypes(service)[0],operationType:operationTypes(service)[0],side:service==="Inmobiliaria"?"seller":"none",roleContext:"",an24Base:bases(service)[0][0]});
   };
+
+  const mainRule=(id:string)=>commissionRules.find(r=>r.product_id===id&&r.active!==false);
+  const commercialRule=(id:string,k:ProfileKey)=>commercialRules.find(r=>r.product_id===id&&r.active!==false&&profileName(r.profile_type)===k);
+
+  const saveProductsLocal=(next:Product[])=>{ setItems(next); localStorage.setItem("one_product_catalog",JSON.stringify(next)); };
+  const submit=()=>{
+    const provider=providers.find(p=>p.id===form.providerId); if(!provider||!form.name.trim()) return;
+    const payload:Product={id:editingId||crypto.randomUUID(),service:form.service,providerId:provider.id,company:provider.name,name:form.name.trim(),features:form.features.trim(),active:true,productType:form.productType,operationType:form.operationType,pvp:Number(form.pvp)||0};
+    saveProductsLocal(editingId?items.map(p=>p.id===editingId?{...p,...payload}:p):[...items,payload]);
+    setOpen(false);
+  };
+  const toggleActive=(id:string)=>saveProductsLocal(items.map(p=>p.id===id?{...p,active:!p.active}:p));
+
+  const openProviderCreate=()=>{setProviderEditId(null);setProviderForm({service:"Energía",name:"",logo:"",referenceOnly:false});setProvidersOpen(true)};
+  const openProviderEdit=(p:Provider)=>{setProviderEditId(p.id);setProviderForm({service:p.service,name:p.name,logo:p.logo||"",referenceOnly:!!p.referenceOnly});setProvidersOpen(true)};
+  const saveProvider=()=>{const name=providerForm.name.trim();if(!name)return;setProviders(providerEditId?providers.map(p=>p.id===providerEditId?{...p,...providerForm,name}:p):[...providers,{id:crypto.randomUUID(),...providerForm,name,active:true}]);setProvidersOpen(false)};
+  const toggleProvider=(id:string)=>setProviders(providers.map(p=>p.id===id?{...p,active:!p.active}:p));
+  const onProviderLogo=(file?:File)=>{if(!file)return;const reader=new FileReader();reader.onload=()=>setProviderForm(v=>({...v,logo:String(reader.result||"")}));reader.readAsDataURL(file)};
+
+  const currentBases=bases(form.service);
 
   return <main className={styles.page}>
     <header className={styles.hero}>
-      <div>
-        <span>ONE · CATÁLOGO COMERCIAL</span>
-        <h1>Productos</h1>
-        <p>Servicio → proveedor → producto → comisiones por perfil.</p>
-      </div>
+      <div><span>ONE · CATÁLOGO COMERCIAL</span><h1>Productos</h1><p>Servicio → proveedor → producto → motor de comisiones ONE.</p></div>
       <div className={styles.heroActions}><button className={styles.secondaryHero} onClick={openProviderCreate}>Proveedores</button><button onClick={openCreate}>+ Nuevo producto</button></div>
     </header>
 
     <div className={styles.kpis}>
-      <K label="Servicios" value={services.length}/>
-      <K label="Proveedores" value={new Set(providers.map(p=>p.name)).size}/>
-      <K label="Productos activos" value={items.filter(p=>p.active).length}/>
-      <K label="Perfiles de comisión" value={4}/>
+      <K label="Servicios" value={services.length}/><K label="Proveedores" value={new Set(providers.map(p=>p.name)).size}/><K label="Productos activos" value={items.filter(p=>p.active).length}/><K label="Reglas de comisión" value={commissionRules.length+commercialRules.length}/>
     </div>
 
-    <section className={styles.info}>
-      <strong>Regla ONE</strong>
-      <span>La empresa se gestiona como Proveedor. Un proveedor puede tener varios productos y cada producto sus propias comisiones.</span>
-    </section>
+    <section className={styles.info}><strong>Motor ONE</strong><span>Comisión AN24 + comisión comercial + objetivos + aceleradores + clawback.</span></section>
 
     <section className={styles.tableCard}>
-      <div className={styles.tableHead}>
-        <div>
-          <h2>Catálogo de productos</h2>
-          <p>Edita, desactiva o reactiva productos sin perder el histórico.</p>
-        </div>
-        <div className={styles.tools}>
-          <div className={styles.searchBox}><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar producto, proveedor, características..."/></div>
-          <select className={styles.filter} value={serviceFilter} onChange={e=>setServiceFilter(e.target.value)}>
-            <option>Todos</option>{services.map(s=><option key={s}>{s}</option>)}
-          </select>
-          <select className={styles.filter} value={statusFilter} onChange={e=>setStatusFilter(e.target.value as any)}>
-            <option>Todos</option><option>Activos</option><option>Inactivos</option>
-          </select>
-        </div>
-      </div>
-
-      <div className={styles.resultBar}>
-        <span>{filtered.length} {filtered.length===1?"producto":"productos"}</span>
-        {(query||serviceFilter!=="Todos"||statusFilter!=="Todos") &&
-          <button onClick={()=>{setQuery("");setServiceFilter("Todos");setStatusFilter("Todos")}}>Limpiar filtros</button>}
-      </div>
-
-      <div className={styles.productList}>
-        {filtered.map(p=><article className={`${styles.productRow} ${!p.active?styles.rowInactive:""}`} key={p.id}>
-          <div className={styles.identity}>
-            <div className={styles.identityTop}>{providers.find(x=>x.id===p.providerId)?.logo && <img className={styles.providerLogo} src={providers.find(x=>x.id===p.providerId)?.logo} alt=""/>}<span className={styles.service}>{p.service}</span></div>
-            <strong>{p.name}</strong>
-            <small>{p.company}</small>
-          </div>
-          <div className={styles.features}><span>Características</span><p>{p.features||"Sin características añadidas"}</p></div>
-          <div className={styles.commissions}>
-            <div className={styles.commissionMain}><span>Comisión AN24</span><strong>{p.an24.toFixed(2)} €</strong></div>
-            <div className={styles.commissionProfiles}>
-              <span>🏆 Premium <b>{p.premium.toFixed(2)} €</b></span>
-              <span>⭐ Avanzado <b>{p.advanced.toFixed(2)} €</b></span>
-              <span>🔵 Estándar <b>{p.standard.toFixed(2)} €</b></span>
-              <span>🤝 Colaborador <b>{p.collaborator.toFixed(2)} €</b></span>
-            </div>
-          </div>
-          <div className={styles.right}>
-            <span className={p.active?styles.active:styles.inactive}>{p.active?"ACTIVO":"INACTIVO"}</span>
-            <div className={styles.actionsInline}>
-              <button className={styles.editBtn} onClick={()=>openEdit(p)}>Editar</button>
-              <button className={p.active?styles.deactivateBtn:styles.reactivateBtn} onClick={()=>toggleActive(p.id)}>
-                {p.active?"Desactivar":"Reactivar"}
-              </button>
-            </div>
-          </div>
-        </article>)}
-
-        {filtered.length===0 && <div className={styles.empty}><strong>No encontramos productos</strong><span>Prueba con otro filtro o búsqueda.</span></div>}
-      </div>
+      <div className={styles.tableHead}><div><h2>Catálogo de productos</h2><p>Datos reales desde ONE Cloud.</p></div><div className={styles.tools}><div className={styles.searchBox}><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar producto, proveedor, características..."/></div><select className={styles.filter} value={serviceFilter} onChange={e=>setServiceFilter(e.target.value)}><option>Todos</option>{services.map(s=><option key={s}>{s}</option>)}</select><select className={styles.filter} value={statusFilter} onChange={e=>setStatusFilter(e.target.value as any)}><option>Todos</option><option>Activos</option><option>Inactivos</option></select></div></div>
+      <div className={styles.resultBar}><span>{filtered.length} {filtered.length===1?"producto":"productos"}</span></div>
+      <div className={styles.productList}>{filtered.map(p=>{const rule=mainRule(p.id);return <article className={`${styles.productRow} ${!p.active?styles.rowInactive:""}`} key={p.id}>
+        <div className={styles.identity}><div className={styles.identityTop}><span className={styles.service}>{p.service}</span></div><strong>{p.name}</strong><small>{p.company}</small></div>
+        <div className={styles.features}><span>Características</span><p>{p.features||"Sin características añadidas"}</p>{rule?.operation_type&&<small>{rule.operation_type}</small>}</div>
+        <div className={styles.commissions}><div className={styles.commissionMain}><span>Comisión AN24</span><strong>{rule?.commission_mode==="percentage"?`${Number(rule.percentage||0).toFixed(2)} %`:rule?.commission_mode==="mixed"?`${money(rule.fixed_amount)} + ${Number(rule.percentage||0).toFixed(2)} %`:money(rule?.fixed_amount)}</strong></div><div className={styles.commissionProfiles}>{profiles.map(({key,icon})=>{const cr=commercialRule(p.id,key);const value=cr?.commission_mode==="percentage"?`${Number(cr.percentage||0).toFixed(2)} %`:cr?.commission_mode==="mixed"?`${money(cr.fixed_amount)} + ${Number(cr.percentage||0).toFixed(2)} %`:money(cr?.fixed_amount);return <span key={key}>{icon} {key} <b>{value}</b></span>})}</div></div>
+        <div className={styles.right}><span className={p.active?styles.active:styles.inactive}>{p.active?"ACTIVO":"INACTIVO"}</span><div className={styles.actionsInline}><button className={styles.editBtn} onClick={()=>openEdit(p)}>Editar</button><button className={p.active?styles.deactivateBtn:styles.reactivateBtn} onClick={()=>toggleActive(p.id)}>{p.active?"Desactivar":"Reactivar"}</button></div></div>
+      </article>})}</div>
     </section>
 
-    <section className={styles.providerStrip}>
-      <div><strong>Proveedores</strong><span>{providers.filter(p=>p.active).length} activos · {providers.length} totales</span></div>
-      <div className={styles.providerChips}>{providers.slice(0,8).map(p=><button key={p.id} className={!p.active?styles.providerOff:""} onClick={()=>openProviderEdit(p)}>{p.logo?<img src={p.logo} alt=""/>:<b>{p.name.slice(0,2)}</b>}<span>{p.name}</span></button>)}</div>
-      <button className={styles.manageProviders} onClick={openProviderCreate}>+ Gestionar</button>
-    </section>
+    <section className={styles.providerStrip}><div><strong>Proveedores</strong><span>{providers.filter(p=>p.active).length} activos · {providers.length} totales</span></div><div className={styles.providerChips}>{providers.slice(0,8).map(p=><button key={p.id} className={!p.active?styles.providerOff:""} onClick={()=>openProviderEdit(p)}>{p.logo?<img src={p.logo} alt=""/>:<b>{p.name.slice(0,2)}</b>}<span>{p.name}</span></button>)}</div><button className={styles.manageProviders} onClick={openProviderCreate}>+ Gestionar</button></section>
 
-    {open && <div className={styles.overlay} onMouseDown={()=>setOpen(false)}>
-      <div className={styles.modal} onMouseDown={e=>e.stopPropagation()}>
-        <div className={styles.modalHead}>
-          <div><span>{editingId?"EDITAR PRODUCTO":"NUEVO PRODUCTO"}</span><h2>{editingId?"Editar producto":"Crear producto"}</h2></div>
-          <button className={styles.close} onClick={()=>setOpen(false)}>×</button>
-        </div>
+    {open&&<div className={styles.overlay} onMouseDown={()=>setOpen(false)}><div className={styles.modal} style={{width:"min(980px,94vw)",maxHeight:"90vh",overflowY:"auto"}} onMouseDown={e=>e.stopPropagation()}>
+      <div className={styles.modalHead}><div><span>{editingId?"EDITAR PRODUCTO":"NUEVO PRODUCTO"}</span><h2>{editingId?"Editar producto":"Crear producto"}</h2></div><button className={styles.close} onClick={()=>setOpen(false)}>×</button></div>
+      <div className={styles.formGrid}>
+        <label>Servicio<select value={form.service} onChange={e=>onServiceChange(e.target.value)}>{services.map(s=><option key={s}>{s}</option>)}</select></label>
+        <label>Proveedor<select value={form.providerId} onChange={e=>setForm({...form,providerId:e.target.value})}>{activeProvidersForService.length===0&&<option value="">Sin proveedores activos</option>}{activeProvidersForService.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label>
+        <label>Tipo de producto<select value={form.productType} onChange={e=>setForm({...form,productType:e.target.value})}>{productTypes(form.service).map(x=><option key={x}>{x}</option>)}</select></label>
+        <label>Tipo de operación<select value={form.operationType} onChange={e=>setForm({...form,operationType:e.target.value})}>{operationTypes(form.service).map(x=><option key={x}>{x}</option>)}</select></label>
+        <label className={styles.wide}>Producto<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Nombre comercial del producto"/></label>
+        <label className={styles.wide}>Características<input value={form.features} onChange={e=>setForm({...form,features:e.target.value})} placeholder="Condiciones principales"/></label>
 
-        <div className={styles.formGrid}>
-          <label>Servicio
-            <select value={form.service} onChange={e=>onServiceChange(e.target.value)}>
-              {services.map(s=><option key={s}>{s}</option>)}
-            </select>
-          </label>
+        {form.service==="Inmobiliaria"&&<><label>Quién paga<select value={form.side} onChange={e=>setForm({...form,side:e.target.value})}><option value="seller">Vendedor</option><option value="buyer">Comprador</option><option value="both">Ambas partes</option></select></label><label>Papel comercial<select value={form.roleContext} onChange={e=>setForm({...form,roleContext:e.target.value})}><option value="">General</option><option value="acquisition">Captador</option><option value="closing">Cerrador</option></select></label></>}
 
-          <label>Proveedor
-            <select value={form.providerId} onChange={e=>setForm({...form,providerId:e.target.value})}>
-              {activeProvidersForService.length===0 && <option value="">Sin proveedores activos</option>}
-              {activeProvidersForService.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}
-            </select>
-          </label>
+        <div style={box}><h3>💰 Comisión AN24</h3><div style={grid3}>
+          <label>Tipo<select value={form.an24Mode} onChange={e=>setForm({...form,an24Mode:e.target.value as Mode})}><option value="fixed">Importe fijo</option><option value="percentage">Porcentaje</option><option value="mixed">Fijo + porcentaje</option></select></label>
+          {(form.an24Mode==="fixed"||form.an24Mode==="mixed")&&<label>Importe fijo (€)<input type="number" step="0.01" value={form.an24Fixed} onChange={e=>setForm({...form,an24Fixed:e.target.value})}/></label>}
+          {(form.an24Mode==="percentage"||form.an24Mode==="mixed")&&<label>Porcentaje (%)<input type="number" step="0.01" value={form.an24Percentage} onChange={e=>setForm({...form,an24Percentage:e.target.value})}/></label>}
+          {(form.an24Mode==="percentage"||form.an24Mode==="mixed")&&<label>Base<select value={form.an24Base} onChange={e=>setForm({...form,an24Base:e.target.value})}>{currentBases.map(([v,l])=><option value={v} key={v}>{l}</option>)}</select></label>}
+          {form.service==="Telefonía"&&<label>Puntos<input type="number" step="0.01" value={form.an24Points} onChange={e=>setForm({...form,an24Points:e.target.value})}/></label>}
+          {(form.service==="Energía"||form.service==="Seguros"||form.service==="Alarmas")&&<><label>Recurrente fijo (€)<input type="number" step="0.01" value={form.an24Recurring} onChange={e=>setForm({...form,an24Recurring:e.target.value})}/></label><label>Recurrente (%)<input type="number" step="0.01" value={form.an24RecurringPercentage} onChange={e=>setForm({...form,an24RecurringPercentage:e.target.value})}/></label></>}
+        </div></div>
 
-          <label className={styles.wide}>Producto
-            <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Ej. Tarifa 24H"/>
-          </label>
+        {form.service==="Telefonía"&&<div style={box}><h3>📱 Alta / Portabilidad / Objetivos</h3><p style={{marginTop:0}}>El campo <b>Tipo de operación</b> distingue Alta nueva, Portabilidad, Línea adicional o Renovación.</p>
+          <label style={{display:"flex",gap:8,alignItems:"center"}}><input type="checkbox" checked={form.targetEnabled} onChange={e=>setForm({...form,targetEnabled:e.target.checked})}/> Activar objetivo mensual</label>
+          {form.targetEnabled&&<div style={{...grid3,marginTop:12}}><label>Desde altas<input type="number" value={form.targetMin} onChange={e=>setForm({...form,targetMin:e.target.value})}/></label><label>Hasta altas<input type="number" value={form.targetMax} onChange={e=>setForm({...form,targetMax:e.target.value})}/></label><label>Bonus (€)<input type="number" step="0.01" value={form.targetBonus} onChange={e=>setForm({...form,targetBonus:e.target.value})}/></label></div>}
+          <label style={{display:"flex",gap:8,alignItems:"center",marginTop:14}}><input type="checkbox" checked={form.acceleratorEnabled} onChange={e=>setForm({...form,acceleratorEnabled:e.target.checked})}/> Añadir acelerador / sobrecomisión</label>
+          {form.acceleratorEnabled&&<div style={{...grid3,marginTop:12}}><label>Desde<input type="number" value={form.acceleratorFrom} onChange={e=>setForm({...form,acceleratorFrom:e.target.value})}/></label><label>Hasta<input type="number" value={form.acceleratorTo} onChange={e=>setForm({...form,acceleratorTo:e.target.value})}/></label><label>Sobrecomisión (€)<input type="number" step="0.01" value={form.acceleratorBonus} onChange={e=>setForm({...form,acceleratorBonus:e.target.value})}/></label></div>}
+          <p><b>Ejemplo Finetwork:</b> 6–11 altas → +150 € · 12+ → +300 €.</p>
+        </div>}
 
-          <label>Comisión AN24 (€)
-            <input type="number" value={form.an24} onChange={e=>setForm({...form,an24:e.target.value})}/>
-          </label>
+        {(form.service==="Telefonía"||form.service==="Energía"||form.service==="Alarmas")&&<div style={box}><h3>↩️ Clawback / retrocomisión</h3><label style={{display:"flex",gap:8,alignItems:"center"}}><input type="checkbox" checked={form.clawbackEnabled} onChange={e=>setForm({...form,clawbackEnabled:e.target.checked})}/> Este producto tiene clawback</label>{form.clawbackEnabled&&<div style={{...grid3,marginTop:12}}><label>Meses<input type="number" value={form.clawbackMonths} onChange={e=>setForm({...form,clawbackMonths:e.target.value})}/></label><label>Retrocomisión (%)<input type="number" step="0.01" value={form.clawbackPercentage} onChange={e=>setForm({...form,clawbackPercentage:e.target.value})}/></label></div>}</div>}
 
-          <label className={styles.wide}>Características
-            <input value={form.features} onChange={e=>setForm({...form,features:e.target.value})} placeholder="Condiciones principales del producto"/>
-          </label>
-
-          {form.service==="Alarmas" && <>
-            <label>Precio tarifa sin IVA (€)<input type="number" step="0.01" value={form.priceBase} onChange={e=>setForm({...form,priceBase:e.target.value})}/></label>
-            <label>IVA (%)<input type="number" step="0.01" value={form.vat} onChange={e=>setForm({...form,vat:e.target.value})}/></label>
-            <label>Tipo de cobro<select value={form.billingType} onChange={e=>setForm({...form,billingType:e.target.value})}><option>Único</option><option>Mensual</option><option>Ambos</option></select></label>
-            {(form.billingType==="Mensual"||form.billingType==="Ambos") && <label>Cuota mensual sin IVA (€)<input type="number" step="0.01" value={form.monthlyPrice} onChange={e=>setForm({...form,monthlyPrice:e.target.value})}/></label>}
-            <label>Promoción compañía<select value={form.promoType} onChange={e=>setForm({...form,promoType:e.target.value})}><option>Ninguna</option><option>Porcentaje</option><option>Importe</option><option>Precio final</option></select></label>
-            {form.promoType!=="Ninguna" && <label>Valor promoción<input type="number" step="0.01" value={form.promoValue} onChange={e=>setForm({...form,promoValue:e.target.value})}/></label>}
-            {form.promoType!=="Ninguna" && <label>Inicio promoción<input type="date" value={form.promoStart} onChange={e=>setForm({...form,promoStart:e.target.value})}/></label>}
-            {form.promoType!=="Ninguna" && <label>Fin promoción<input type="date" value={form.promoEnd} onChange={e=>setForm({...form,promoEnd:e.target.value})}/></label>}
-          </>}
-
-          <label>🏆 Premium (€)<input type="number" value={form.premium} onChange={e=>setForm({...form,premium:e.target.value})}/></label>
-          <label>⭐ Avanzado (€)<input type="number" value={form.advanced} onChange={e=>setForm({...form,advanced:e.target.value})}/></label>
-          <label>🔵 Estándar (€)<input type="number" value={form.standard} onChange={e=>setForm({...form,standard:e.target.value})}/></label>
-          <label>🤝 Colaborador (€)<input type="number" value={form.collaborator} onChange={e=>setForm({...form,collaborator:e.target.value})}/></label>
-        </div>
-
-        {activeProvidersForService.length===0 &&
-          <div className={styles.warning}>No hay proveedores activos para este servicio. Primero habrá que darlos de alta en Proveedores.</div>}
-
-        <div className={styles.actions}>
-          <button className={styles.cancel} onClick={()=>setOpen(false)}>Cancelar</button>
-          <button className={styles.primary} onClick={submit} disabled={!form.providerId}>{editingId?"Guardar cambios":"Guardar producto"}</button>
-        </div>
+        <div style={box}><h3>👥 Comisión por tipo de comercial</h3><div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:14}}>{profiles.map(({key,icon})=>{const pf=profileForms[key];return <div key={key} style={{background:"#fff",border:"1px solid #e6e6e6",borderRadius:12,padding:14}}><strong>{icon} {key}</strong><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:10}}><label style={{gridColumn:"1 / -1"}}>Tipo<select value={pf.mode} onChange={e=>setProfileForms({...profileForms,[key]:{...pf,mode:e.target.value as Mode}})}><option value="fixed">Importe fijo</option><option value="percentage">Porcentaje</option><option value="mixed">Fijo + porcentaje</option></select></label>{(pf.mode==="fixed"||pf.mode==="mixed")&&<label>Fijo (€)<input type="number" step="0.01" value={pf.fixed} onChange={e=>setProfileForms({...profileForms,[key]:{...pf,fixed:e.target.value}})}/></label>}{(pf.mode==="percentage"||pf.mode==="mixed")&&<label>Porcentaje (%)<input type="number" step="0.01" value={pf.percentage} onChange={e=>setProfileForms({...profileForms,[key]:{...pf,percentage:e.target.value}})}/></label>}{(pf.mode==="percentage"||pf.mode==="mixed")&&<label style={{gridColumn:"1 / -1"}}>Calculado sobre<select value={pf.base} onChange={e=>setProfileForms({...profileForms,[key]:{...pf,base:e.target.value}})}><option value="provider_commission">Comisión AN24</option><option value="sale_price">Precio operación</option><option value="premium">Prima</option><option value="monthly_fee">Cuota</option><option value="custom">Otra base</option></select></label>}{form.service==="Telefonía"&&<label style={{gridColumn:"1 / -1"}}>Puntos<input type="number" step="0.01" value={pf.points} onChange={e=>setProfileForms({...profileForms,[key]:{...pf,points:e.target.value}})}/></label>}</div></div>})}</div></div>
       </div>
-    </div>}
+      <div style={{margin:"14px 0",padding:12,borderRadius:10,border:"1px solid #ffd7cc",background:"#fff7f4",fontSize:13}}>Este paso cambia el formulario al motor nuevo. El siguiente conecta Guardar con Supabase para products + commission_rules + commercial_commission_rules + objetivos + aceleradores + clawback.</div>
+      <div className={styles.actions}><button className={styles.cancel} onClick={()=>setOpen(false)}>Cancelar</button><button className={styles.primary} onClick={submit} disabled={!form.providerId}>{editingId?"Guardar cambios":"Guardar producto"}</button></div>
+    </div></div>}
 
-    {providersOpen && <div className={styles.overlay} onMouseDown={()=>setProvidersOpen(false)}>
-      <div className={`${styles.modal} ${styles.providerModal}`} onMouseDown={e=>e.stopPropagation()}>
-        <div className={styles.modalHead}><div><span>PROVEEDORES</span><h2>{providerEditId?"Editar proveedor":"Nuevo proveedor"}</h2></div><button className={styles.close} onClick={()=>setProvidersOpen(false)}>×</button></div>
-        <div className={styles.providerManager}>
-          <div className={styles.providerForm}>
-            <label>Servicio<select value={providerForm.service} onChange={e=>setProviderForm({...providerForm,service:e.target.value})}>{services.map(s=><option key={s}>{s}</option>)}</select></label>
-            <label>Nombre del proveedor<input value={providerForm.name} onChange={e=>setProviderForm({...providerForm,name:e.target.value})} placeholder="Ej. GANA, SEGURMA, MOVISTAR..."/></label>
-            <label>Logo<input type="file" accept="image/*" onChange={e=>onProviderLogo(e.target.files?.[0])}/></label>
-            {providerForm.service==="Energía" && <label className={styles.referenceCheck}><input type="checkbox" checked={providerForm.referenceOnly} onChange={e=>setProviderForm({...providerForm,referenceOnly:e.target.checked})}/><span><strong>Solo comercializadora de referencia</strong><small>Aparece como compañía actual/anterior del cliente, pero no como proveedor para vender.</small></span></label>}
-            {providerForm.logo && <img className={styles.logoPreview} src={providerForm.logo} alt="Vista previa"/>}
-            <div className={styles.actions}><button className={styles.cancel} onClick={()=>setProvidersOpen(false)}>Cancelar</button><button className={styles.primary} onClick={saveProvider}>{providerEditId?"Guardar cambios":"Crear proveedor"}</button></div>
-          </div>
-          <div className={styles.providerList}><h3>Proveedores creados</h3>{providers.map(p=><div className={styles.providerItem} key={p.id}>{p.logo?<img src={p.logo} alt=""/>:<b>{p.name.slice(0,2)}</b>}<div><strong>{p.name}</strong><small>{p.service} · {p.referenceOnly?"Solo referencia":(p.active?"Activo":"Inactivo")}</small></div><button onClick={()=>openProviderEdit(p)}>Editar</button><button onClick={()=>toggleProvider(p.id)}>{p.active?"Desactivar":"Reactivar"}</button></div>)}</div>
-        </div>
-      </div>
-    </div>}
+    {providersOpen&&<div className={styles.overlay} onMouseDown={()=>setProvidersOpen(false)}><div className={`${styles.modal} ${styles.providerModal}`} onMouseDown={e=>e.stopPropagation()}><div className={styles.modalHead}><div><span>PROVEEDORES</span><h2>{providerEditId?"Editar proveedor":"Nuevo proveedor"}</h2></div><button className={styles.close} onClick={()=>setProvidersOpen(false)}>×</button></div><div className={styles.providerManager}><div className={styles.providerForm}><label>Servicio<select value={providerForm.service} onChange={e=>setProviderForm({...providerForm,service:e.target.value})}>{services.map(s=><option key={s}>{s}</option>)}</select></label><label>Nombre del proveedor<input value={providerForm.name} onChange={e=>setProviderForm({...providerForm,name:e.target.value})} placeholder="Ej. Finetwork, GANA, SEGURMA..."/></label><label>Logo<input type="file" accept="image/*" onChange={e=>onProviderLogo(e.target.files?.[0])}/></label>{providerForm.service==="Energía"&&<label className={styles.referenceCheck}><input type="checkbox" checked={providerForm.referenceOnly} onChange={e=>setProviderForm({...providerForm,referenceOnly:e.target.checked})}/><span><strong>Solo comercializadora de referencia</strong><small>Aparece como compañía actual/anterior, pero no como proveedor para vender.</small></span></label>}{providerForm.logo&&<img className={styles.logoPreview} src={providerForm.logo} alt=""/>}<div className={styles.actions}><button className={styles.cancel} onClick={()=>setProvidersOpen(false)}>Cancelar</button><button className={styles.primary} onClick={saveProvider}>{providerEditId?"Guardar cambios":"Crear proveedor"}</button></div></div><div className={styles.providerList}><h3>Proveedores creados</h3>{providers.map(p=><div className={styles.providerItem} key={p.id}>{p.logo?<img src={p.logo} alt=""/>:<b>{p.name.slice(0,2)}</b>}<div><strong>{p.name}</strong><small>{p.service} · {p.referenceOnly?"Solo referencia":p.active?"Activo":"Inactivo"}</small></div><button onClick={()=>openProviderEdit(p)}>Editar</button><button onClick={()=>toggleProvider(p.id)}>{p.active?"Desactivar":"Reactivar"}</button></div>)}</div></div></div></div>}
   </main>
 }
 
-function K({label,value}:{label:string;value:number}) {
-  return <div className={styles.kpi}><span>{label}</span><strong>{value}</strong></div>
-}
+function K({label,value}:{label:string;value:number}){return <div className={styles.kpi}><span>{label}</span><strong>{value}</strong></div>}
