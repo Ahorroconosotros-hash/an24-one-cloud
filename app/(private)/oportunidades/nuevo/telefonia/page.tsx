@@ -1,17 +1,12 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadClients } from "@/lib/clientes";
 import { addClientActivity } from "@/lib/client-activity";
 import styles from "../NuevoNegocio.module.css";
-
-type SaleType =
-  | "Convergente"
-  | "Solo fibra"
-  | "Solo móvil"
-  | "Fibra + móviles"
-  | "Telefonía empresa";
+import { supabaseBrowser } from "@/lib/supabase-browser";
+import { getCurrentOneUser } from "@/lib/current-one-user-client";
 
 type Mode = "Comercial" | "BackOffice";
 
@@ -19,7 +14,6 @@ type Line = {
   id: string;
   number: string;
   action: "Portabilidad" | "Alta nueva";
-  tariff: string;
   iccid: string;
   sim: "SIM" | "eSIM";
   donor: string;
@@ -32,14 +26,39 @@ type Line = {
   portDate: string;
 };
 
+type Provider = {
+  id: string;
+  name: string;
+  service?: string | null;
+  active?: boolean | null;
+};
+
+type CatalogProduct = {
+  id: string;
+  name: string;
+  service?: string | null;
+  category?: string | null;
+  description?: string | null;
+  provider_id?: string | null;
+  active?: boolean | null;
+  product_type?: string | null;
+  operation_type?: string | null;
+  pvp?: number | null;
+  config?: Record<string, any> | null;
+};
+
 type PhoneOpportunity = {
   id: string;
   service: "Telefonía";
   clientId: string;
   clientName: string;
-  saleType: SaleType;
+  providerId: string;
   operator: string;
-  fiber: string;
+  productId: string;
+  productName: string;
+  productDescription: string;
+  productType: string;
+  productSnapshot: Record<string, any>;
   address: string;
   lines: Line[];
   monthly: number;
@@ -61,37 +80,21 @@ type PhoneOpportunity = {
   updatedAt: string;
 };
 
-const operators = [
-  "Vodafone",
-  "Orange",
-  "Movistar",
-  "DIGI",
-  "MásMóvil",
-  "Yoigo",
-  "Otro",
-];
-
-const tariffs = [
-  "Ilimitada",
-  "100 GB",
-  "50 GB",
-  "25 GB",
-  "Solo voz",
-  "Otra",
-];
-
 function newLine(): Line {
   return {
     id: `l-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     number: "",
     action: "Portabilidad",
-    tariff: "Ilimitada",
     iccid: "",
     sim: "SIM",
     donor: "",
     status: "Pendiente BackOffice",
     portDate: "",
   };
+}
+
+function normalize(value: unknown) {
+  return String(value ?? "").trim();
 }
 
 function TelefoniaContent() {
@@ -103,15 +106,36 @@ function TelefoniaContent() {
     []
   );
 
-  const [opportunityId, setOpportunityId] = useState("");
+  const [opportunityId, setOpportunityId] = useState(search.get("id") || "");
   const [clientId, setClientId] = useState(search.get("cliente") || "");
   const [mode, setMode] = useState<Mode>("Comercial");
+  const [roleReady, setRoleReady] = useState(false);
 
-  const [saleType, setSaleType] = useState<SaleType>("Convergente");
-  const [operator, setOperator] = useState("Vodafone");
-  const [fiber, setFiber] = useState("1 Gb");
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentOneUser()
+      .then((user) => {
+        if (cancelled) return;
+        setMode(user.role === "Comercial" ? "Comercial" : "BackOffice");
+      })
+      .catch(() => {
+        if (!cancelled) setMode("Comercial");
+      })
+      .finally(() => {
+        if (!cancelled) setRoleReady(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState("");
+
+  const [providerId, setProviderId] = useState("");
+  const [productId, setProductId] = useState("");
+
   const [address, setAddress] = useState("");
-
   const [monthly, setMonthly] = useState("");
   const [single, setSingle] = useState("");
   const [vat, setVat] = useState("21");
@@ -122,7 +146,6 @@ function TelefoniaContent() {
       id: "l1",
       number: "",
       action: "Portabilidad",
-      tariff: "Ilimitada",
       iccid: "",
       sim: "SIM",
       donor: "",
@@ -136,8 +159,149 @@ function TelefoniaContent() {
 
   const client = clients.find((c) => c.id === clientId);
 
-  const hasFiber = saleType !== "Solo móvil";
-  const hasMobile = saleType !== "Solo fibra";
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCatalog() {
+      try {
+        setCatalogLoading(true);
+        setCatalogError("");
+
+        const response = await fetch("/api/catalog", { cache: "no-store" });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || "No se pudo cargar el catálogo");
+        }
+
+        const telProviders: Provider[] = (data.providers || []).filter(
+          (p: Provider) =>
+            p.active !== false &&
+            normalize(p.service).toLowerCase() === "telefonía"
+        );
+
+        const telProducts: CatalogProduct[] = (data.products || []).filter(
+          (p: CatalogProduct) => {
+            const service = normalize(p.service || p.category).toLowerCase();
+            return p.active !== false && service === "telefonía";
+          }
+        );
+
+        if (cancelled) return;
+
+        setProviders(telProviders);
+        setCatalogProducts(telProducts);
+
+        if (telProviders.length > 0) {
+          setProviderId((current) => current || telProviders[0].id);
+        }
+      } catch (error: any) {
+        if (!cancelled) {
+          setCatalogError(error?.message || "Error cargando el catálogo");
+        }
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
+      }
+    }
+
+    loadCatalog();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const providerProducts = useMemo(
+    () => catalogProducts.filter((p) => p.provider_id === providerId),
+    [catalogProducts, providerId]
+  );
+
+  useEffect(() => {
+    if(catalogLoading) return;
+    setProductId((current) =>
+      providerProducts.some((p) => p.id === current)
+        ? current
+        : providerProducts[0]?.id || ""
+    );
+  }, [providerId, providerProducts, catalogLoading]);
+
+  const selectedProvider =
+    providers.find((p) => p.id === providerId) || null;
+
+  const selectedProduct =
+    catalogProducts.find((p) => p.id === productId) || null;
+
+  const config = selectedProduct?.config || {};
+
+  const productType =
+    selectedProduct?.product_type ||
+    config.phone_type ||
+    "";
+
+  const hasFiber =
+    Boolean(config.fiber_speed) ||
+    /fibra|convergente/i.test(productType) ||
+    /fibra/i.test(selectedProduct?.name || "");
+
+  const mobileLinesFromProduct = Number(config.mobile_lines || 0);
+
+  const hasMobile =
+    mobileLinesFromProduct > 0 ||
+    /móvil|movil|línea|linea|convergente/i.test(productType) ||
+    /móvil|movil|línea|linea/i.test(selectedProduct?.name || "");
+
+  useEffect(() => {
+    if (mobileLinesFromProduct > 0) {
+      setLines((current) => {
+        if (current.length === mobileLinesFromProduct) return current;
+
+        if (current.length > mobileLinesFromProduct) {
+          return current.slice(0, mobileLinesFromProduct);
+        }
+
+        return [
+          ...current,
+          ...Array.from(
+            { length: mobileLinesFromProduct - current.length },
+            () => newLine()
+          ),
+        ];
+      });
+    }
+  }, [mobileLinesFromProduct]);
+
+  useEffect(() => {
+    if(opportunityId) return;
+    if (selectedProduct?.pvp != null && selectedProduct.pvp > 0) {
+      setMonthly(String(selectedProduct.pvp));
+    }
+  }, [selectedProduct?.id, opportunityId]);
+
+
+  useEffect(()=>{
+    const editId=search.get("id");
+    if(!editId || catalogLoading) return;
+    try{
+      const stored=JSON.parse(localStorage.getItem("one_phone_opportunities_v1")||"[]");
+      const saved:PhoneOpportunity|undefined=Array.isArray(stored)
+        ? stored.find((item:any)=>String(item?.id)===String(editId))
+        : undefined;
+      if(!saved) return;
+
+      setOpportunityId(saved.id);
+      setClientId(saved.clientId||"");
+      setProviderId(saved.providerId||"");
+      setProductId(saved.productId||"");
+      setAddress(saved.address||"");
+      setLines(Array.isArray(saved.lines)&&saved.lines.length?saved.lines:[newLine()]);
+      setMonthly(String(saved.monthly??""));
+      setSingle(String(saved.single??""));
+      setVat(String(saved.vat??21));
+      setActivation(saved.activation||"");
+      setReference(saved.reference||"");
+      setNotes(saved.notes||"");
+    }catch{}
+  },[search,catalogLoading]);
 
   const tax = 1 + Number(vat || 0) / 100;
   const monthlyTotal = Number(monthly || 0) * tax;
@@ -155,16 +319,10 @@ function TelefoniaContent() {
     });
   }
 
-  function update(
-    id: string,
-    key: keyof Line,
-    value: string
-  ) {
+  function update(id: string, key: keyof Line, value: string) {
     setLines((current) =>
       current.map((line) =>
-        line.id === id
-          ? { ...line, [key]: value }
-          : line
+        line.id === id ? { ...line, [key]: value } : line
       )
     );
   }
@@ -175,8 +333,13 @@ function TelefoniaContent() {
       return false;
     }
 
-    if (!operator) {
+    if (!providerId) {
       alert("Selecciona un operador.");
+      return false;
+    }
+
+    if (!productId) {
+      alert("Selecciona un producto.");
       return false;
     }
 
@@ -186,13 +349,11 @@ function TelefoniaContent() {
         return false;
       }
 
-      const incomplete = lines.some(
-        (line) => !line.number.trim()
-      );
+      const incomplete = lines.some((line) => !line.number.trim());
 
       if (incomplete) {
         alert(
-          "Indica el número de todas las líneas móviles antes de enviar a BackOffice."
+          "Indica el número de todas las líneas móviles antes de generar el presupuesto."
         );
         return false;
       }
@@ -202,8 +363,16 @@ function TelefoniaContent() {
   }
 
   function validateBackOffice() {
-    if (!reference.trim()) {
-      alert("Indica la referencia o número de pedido.");
+    const wantsActivation =
+      Boolean(activation) ||
+      (hasMobile &&
+        lines.length > 0 &&
+        lines.every((line) => line.status === "Activada"));
+
+    if (wantsActivation && !reference.trim()) {
+      alert(
+        "Para marcar la operación como activada, indica la referencia o número de pedido."
+      );
       return false;
     }
 
@@ -233,17 +402,12 @@ function TelefoniaContent() {
     return "En tramitación";
   }
 
-  function save(
-    action: "draft" | "send" | "backoffice"
-  ) {
-    if (action === "send" && !validateCommercial()) {
+  async function save(action: "draft" | "budget" | "backoffice") {
+    if (action === "budget" && !validateCommercial()) {
       return;
     }
 
-    if (
-      action === "backoffice" &&
-      !validateBackOffice()
-    ) {
+    if (action === "backoffice" && !validateBackOffice()) {
       return;
     }
 
@@ -252,8 +416,12 @@ function TelefoniaContent() {
       return;
     }
 
-    const id =
-      opportunityId || `tel-${Date.now()}`;
+    if (!selectedProduct || !selectedProvider) {
+      alert("Selecciona operador y producto.");
+      return;
+    }
+
+    const id = opportunityId || `tel-${Date.now()}`;
 
     if (!opportunityId) {
       setOpportunityId(id);
@@ -269,18 +437,34 @@ function TelefoniaContent() {
       | "Incidencia" =
       action === "draft"
         ? "Borrador"
-        : action === "send"
-        ? "Pendiente BackOffice"
+        : action === "budget"
+        ? "Borrador"
         : getBackOfficeStatus();
+
+    const productSnapshot = {
+      id: selectedProduct.id,
+      name: selectedProduct.name,
+      description: selectedProduct.description || "",
+      productType,
+      operationType: selectedProduct.operation_type || "",
+      pvp: selectedProduct.pvp || 0,
+      config: selectedProduct.config || {},
+      providerId: selectedProvider.id,
+      providerName: selectedProvider.name,
+    };
 
     const item: PhoneOpportunity = {
       id,
       service: "Telefonía",
       clientId,
       clientName: client?.name || "",
-      saleType,
-      operator,
-      fiber: hasFiber ? fiber : "",
+      providerId: selectedProvider.id,
+      operator: selectedProvider.name,
+      productId: selectedProduct.id,
+      productName: selectedProduct.name,
+      productDescription: selectedProduct.description || "",
+      productType,
+      productSnapshot,
       address: hasFiber ? address : "",
       lines: hasMobile ? lines : [],
       monthly: Number(monthly || 0),
@@ -302,10 +486,7 @@ function TelefoniaContent() {
     let previous: PhoneOpportunity[] = [];
 
     try {
-      const raw = JSON.parse(
-        localStorage.getItem(key) || "[]"
-      );
-
+      const raw = JSON.parse(localStorage.getItem(key) || "[]");
       previous = Array.isArray(raw) ? raw : [];
     } catch {
       previous = [];
@@ -318,86 +499,125 @@ function TelefoniaContent() {
     const savedItem: PhoneOpportunity = existing
       ? {
           ...item,
-          createdAt:
-            existing.createdAt || item.createdAt,
+          createdAt: existing.createdAt || item.createdAt,
         }
       : item;
 
     const next = existing
       ? previous.map((opportunity) =>
-          opportunity.id === id
-            ? savedItem
-            : opportunity
+          opportunity.id === id ? savedItem : opportunity
         )
       : [savedItem, ...previous];
 
-    localStorage.setItem(
-      key,
-      JSON.stringify(next)
-    );
+    localStorage.setItem(key, JSON.stringify(next));
+
+    // El Comercial registra la propiedad de la oportunidad en el servidor.
+    // La API obtiene el usuario desde la sesión: el navegador no decide el propietario.
+    if (action === "draft" || action === "budget") {
+      const { data: sessionData } = await supabaseBrowser.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      if (!token) {
+        alert("Tu sesión ha caducado. Vuelve a iniciar sesión antes de guardar el presupuesto.");
+        router.push("/login");
+        return;
+      }
+
+      const workflowResponse = await fetch("/api/commercial-workflow", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          opportunityId: id,
+          status: "draft",
+        }),
+      });
+
+      const workflowData = await workflowResponse.json();
+
+      if (!workflowResponse.ok || !workflowData.ok) {
+        // Revertimos el guardado local para no dejar una oportunidad sin propietario.
+        localStorage.setItem(key, JSON.stringify(previous));
+        alert(workflowData.error || "No se pudo asignar la presupuesto al comercial actual.");
+        return;
+      }
+    }
 
     addClientActivity({
       clientId,
-      type: "Oportunidad",
-      title: `Telefonía · ${saleType}`,
+      type: "Presupuesto",
+      title: `Presupuesto Telefonía · ${selectedProduct.name}`,
       detail:
         action === "draft"
-          ? `Borrador · ${
-              hasMobile ? lines.length : 0
-            } línea(s)`
-          : action === "send"
-          ? `Enviada a BackOffice · ${
-              hasMobile ? lines.length : 0
-            } línea(s)`
-          : `${status} · ${
-              hasMobile ? lines.length : 0
-            } línea(s)`,
-      user:
-        client?.commercial ||
-        "Usuario actual",
+          ? `Borrador de presupuesto · ${selectedProvider.name}`
+          : action === "budget"
+          ? `Presupuesto generado · ${selectedProvider.name}`
+          : `${status} · ${selectedProvider.name}`,
+      user: client?.commercial || "Usuario actual",
     });
 
-    if (action === "send") {
-      setMode("BackOffice");
-
-      alert(
-        "Oportunidad enviada a BackOffice correctamente."
-      );
-
-      return;
-    }
-
     if (action === "backoffice") {
-      alert(
-        `Tramitación guardada. Estado actual: ${status}.`
-      );
-
+      alert(`Tramitación guardada. Estado actual: ${status}.`);
+      router.push("/backoffice");
       return;
     }
 
-    alert("Borrador guardado.");
+    if(action==="draft"){
+      alert("Borrador guardado.");
+      return;
+    }
+
+    // Generar presupuesto abre su documento y NO continúa automáticamente.
+    router.push(`/oportunidades/${savedItem.id}`);
   }
+
+  const featureRows = [
+    ["Tipo de producto", productType],
+    ["Fibra", config.fiber_speed],
+    ["Líneas móviles", config.mobile_lines],
+    ["Datos móviles", config.mobile_data],
+    ["Tipo de operación", selectedProduct?.operation_type],
+  ].filter(([, value]) => normalize(value));
 
   return (
     <main className={styles.page}>
       <header className={styles.hero}>
         <div>
-          <button
-            type="button"
-            onClick={() => router.back()}
-          >
-            ← Oportunidades
+          <button type="button" onClick={() => router.back()}>
+            ← Presupuestoes
           </button>
 
           <span>ONE · TELEFONÍA</span>
 
           <h1>
-            Nueva oportunidad · Telefonía
+            {mode === "Comercial"
+              ? "Nuevo presupuesto · Telefonía"
+              : "Tramitación BackOffice · Telefonía"}
           </h1>
 
+          <div
+            style={{
+              display: "inline-flex",
+              marginTop: 8,
+              padding: "7px 10px",
+              borderRadius: 999,
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: ".04em",
+              background: mode === "Comercial" ? "#fff3ed" : "#f1f1f1",
+              color: mode === "Comercial" ? "#d95327" : "#222",
+              border: "1px solid #e8e8e8",
+            }}
+          >
+            PERFIL ACTUAL · {mode.toUpperCase()}
+          </div>
+
           <p>
-            El comercial vende. BackOffice
-            completa la tramitación.
+            {mode === "Comercial"
+              ? "El comercial selecciona el producto y completa únicamente los datos de la venta."
+              : "BackOffice recibe la venta ya creada y completa exclusivamente la tramitación técnica."}
           </p>
         </div>
       </header>
@@ -407,13 +627,9 @@ function TelefoniaContent() {
           <article className={styles.block}>
             <div className={styles.blockHead}>
               <span>01</span>
-
               <div>
-                <h2>Cliente y venta</h2>
-                <p>
-                  Lo mínimo para construir la
-                  operación.
-                </p>
+                <h2>Cliente y producto</h2>
+                <p>Selecciona cliente, operador y producto del catálogo.</p>
               </div>
             </div>
 
@@ -422,24 +638,12 @@ function TelefoniaContent() {
                 Cliente *
                 <select
                   value={clientId}
-                  disabled={
-                    mode === "BackOffice"
-                  }
-                  onChange={(e) =>
-                    setClientId(
-                      e.target.value
-                    )
-                  }
+                  disabled={mode === "BackOffice" && Boolean(opportunityId)}
+                  onChange={(e) => setClientId(e.target.value)}
                 >
-                  <option value="">
-                    Seleccionar cliente
-                  </option>
-
+                  <option value="">Seleccionar cliente</option>
                   {clients.map((c) => (
-                    <option
-                      key={c.id}
-                      value={c.id}
-                    >
+                    <option key={c.id} value={c.id}>
                       {c.name} · {c.taxId}
                     </option>
                   ))}
@@ -447,116 +651,132 @@ function TelefoniaContent() {
               </label>
 
               <label>
-                Tipo de venta
+                Operador *
                 <select
-                  value={saleType}
-                  disabled={
-                    mode === "BackOffice"
-                  }
-                  onChange={(e) =>
-                    setSaleType(
-                      e.target
-                        .value as SaleType
-                    )
-                  }
+                  value={providerId}
+                  disabled={(mode === "BackOffice" && Boolean(opportunityId)) || catalogLoading}
+                  onChange={(e) => setProviderId(e.target.value)}
                 >
-                  <option>
-                    Convergente
-                  </option>
-                  <option>
-                    Solo fibra
-                  </option>
-                  <option>
-                    Solo móvil
-                  </option>
-                  <option>
-                    Fibra + móviles
-                  </option>
-                  <option>
-                    Telefonía empresa
-                  </option>
+                  {providers.length === 0 && (
+                    <option value="">
+                      {catalogLoading
+                        ? "Cargando operadores..."
+                        : "Sin operadores disponibles"}
+                    </option>
+                  )}
+                  {providers.map((provider) => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.name}
+                    </option>
+                  ))}
                 </select>
               </label>
 
               <label>
-                Operador
+                Producto *
                 <select
-                  value={operator}
-                  disabled={
-                    mode === "BackOffice"
-                  }
-                  onChange={(e) =>
-                    setOperator(
-                      e.target.value
-                    )
-                  }
+                  value={productId}
+                  disabled={mode === "BackOffice" || !providerId}
+                  onChange={(e) => setProductId(e.target.value)}
                 >
-                  {operators.map((x) => (
-                    <option key={x}>
-                      {x}
+                  {providerProducts.length === 0 && (
+                    <option value="">Sin productos para este operador</option>
+                  )}
+                  {providerProducts.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name}
                     </option>
                   ))}
                 </select>
               </label>
             </div>
+
+            {catalogError && (
+              <p style={{ marginTop: 12, color: "#b42318" }}>
+                {catalogError}
+              </p>
+            )}
           </article>
 
-          {hasFiber && (
-            <article
-              className={styles.block}
-            >
-              <div
-                className={styles.blockHead}
-              >
+          {selectedProduct && (
+            <article className={styles.block}>
+              <div className={styles.blockHead}>
                 <span>02</span>
-
                 <div>
-                  <h2>Fibra</h2>
-                  <p>
-                    Producto y domicilio de
-                    instalación.
-                  </p>
+                  <h2>Producto seleccionado</h2>
+                  <p>Las características vienen del catálogo. No se vuelven a picar.</p>
                 </div>
               </div>
 
-              <div
-                className={styles.formGrid}
-              >
-                <label>
-                  Velocidad
-                  <select
-                    value={fiber}
-                    disabled={
-                      mode === "BackOffice"
-                    }
-                    onChange={(e) =>
-                      setFiber(
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option>300 Mb</option>
-                    <option>600 Mb</option>
-                    <option>1 Gb</option>
-                    <option>10 Gb</option>
-                  </select>
-                </label>
-
-                <label
-                  className={styles.span2}
+              <div style={{ padding: 16 }}>
+                <div
+                  style={{
+                    border: "1px solid #ececec",
+                    borderRadius: 12,
+                    padding: 16,
+                    background: "#fafafa",
+                    marginBottom: 14,
+                  }}
                 >
-                  Domicilio instalación
+                  <strong style={{ fontSize: 17 }}>{selectedProduct.name}</strong>
+                  <div style={{ marginTop: 5, color: "#666" }}>
+                    {selectedProvider?.name}
+                  </div>
 
+                  {selectedProduct.description && (
+                    <p style={{ margin: "10px 0 0", color: "#555" }}>
+                      {selectedProduct.description}
+                    </p>
+                  )}
+                </div>
+
+                {featureRows.length > 0 && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                      gap: 10,
+                    }}
+                  >
+                    {featureRows.map(([label, value]) => (
+                      <div
+                        key={String(label)}
+                        style={{
+                          border: "1px solid #eee",
+                          borderRadius: 10,
+                          padding: 12,
+                          background: "#fff",
+                        }}
+                      >
+                        <small style={{ color: "#777" }}>{label}</small>
+                        <div style={{ marginTop: 4, fontWeight: 700 }}>
+                          {String(value)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </article>
+          )}
+
+          {hasFiber && selectedProduct && (
+            <article className={styles.block}>
+              <div className={styles.blockHead}>
+                <span>03</span>
+                <div>
+                  <h2>Instalación</h2>
+                  <p>Solo datos propios de esta oportunidad.</p>
+                </div>
+              </div>
+
+              <div className={styles.formGrid}>
+                <label className={styles.span2}>
+                  Domicilio instalación
                   <input
                     value={address}
-                    disabled={
-                      mode === "BackOffice"
-                    }
-                    onChange={(e) =>
-                      setAddress(
-                        e.target.value
-                      )
-                    }
+                    disabled={mode === "BackOffice" && Boolean(opportunityId)}
+                    onChange={(e) => setAddress(e.target.value)}
                     placeholder="Solo si es distinto al domicilio del cliente"
                   />
                 </label>
@@ -564,58 +784,32 @@ function TelefoniaContent() {
             </article>
           )}
 
-          {hasMobile && (
-            <article
-              className={styles.block}
-            >
-              <div
-                className={styles.blockHead}
-              >
-                <span>03</span>
-
+          {hasMobile && selectedProduct && (
+            <article className={styles.block}>
+              <div className={styles.blockHead}>
+                <span>{hasFiber ? "04" : "03"}</span>
                 <div>
-                  <h2>
-                    Líneas móviles
-                  </h2>
-
+                  <h2>Líneas móviles</h2>
                   <p>
                     {mode === "Comercial"
-                      ? "Número, portabilidad y tarifa. Nada de ICCID todavía."
-                      : "Completa los datos técnicos sobre las líneas que ya vendió el comercial."}
+                      ? "Solo datos propios de la venta: número y si es alta o portabilidad."
+                      : "BackOffice completa ICCID, SIM, operador donante y activación."}
                   </p>
                 </div>
               </div>
 
-              <div
-                className={styles.phoneLines}
-              >
+              <div className={styles.phoneLines}>
                 {lines.map((line, i) => (
-                  <div
-                    className={
-                      styles.phoneLine
-                    }
-                    key={line.id}
-                  >
-                    <b>
-                      Línea {i + 1}
-                    </b>
+                  <div className={styles.phoneLine} key={line.id}>
+                    <b>Línea {i + 1}</b>
 
                     <label>
                       Número
                       <input
-                        value={
-                          line.number
-                        }
-                        disabled={
-                          mode ===
-                          "BackOffice"
-                        }
+                        value={line.number}
+                        disabled={mode === "BackOffice" && Boolean(opportunityId)}
                         onChange={(e) =>
-                          update(
-                            line.id,
-                            "number",
-                            e.target.value
-                          )
+                          update(line.id, "number", e.target.value)
                         }
                         placeholder="600 000 000"
                       />
@@ -624,77 +818,25 @@ function TelefoniaContent() {
                     <label>
                       Operación
                       <select
-                        value={
-                          line.action
-                        }
-                        disabled={
-                          mode ===
-                          "BackOffice"
-                        }
+                        value={line.action}
+                        disabled={mode === "BackOffice" && Boolean(opportunityId)}
                         onChange={(e) =>
-                          update(
-                            line.id,
-                            "action",
-                            e.target.value
-                          )
+                          update(line.id, "action", e.target.value)
                         }
                       >
-                        <option>
-                          Portabilidad
-                        </option>
-
-                        <option>
-                          Alta nueva
-                        </option>
+                        <option>Portabilidad</option>
+                        <option>Alta nueva</option>
                       </select>
                     </label>
 
-                    <label>
-                      Tarifa
-                      <select
-                        value={
-                          line.tariff
-                        }
-                        disabled={
-                          mode ===
-                          "BackOffice"
-                        }
-                        onChange={(e) =>
-                          update(
-                            line.id,
-                            "tariff",
-                            e.target.value
-                          )
-                        }
-                      >
-                        {tariffs.map(
-                          (x) => (
-                            <option
-                              key={x}
-                            >
-                              {x}
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </label>
-
-                    {mode ===
-                      "BackOffice" && (
+                    {mode === "BackOffice" && (
                       <>
                         <label>
                           ICCID
                           <input
-                            value={
-                              line.iccid
-                            }
+                            value={line.iccid}
                             onChange={(e) =>
-                              update(
-                                line.id,
-                                "iccid",
-                                e.target
-                                  .value
-                              )
+                              update(line.id, "iccid", e.target.value)
                             }
                             placeholder="8934..."
                           />
@@ -703,40 +845,22 @@ function TelefoniaContent() {
                         <label>
                           SIM
                           <select
-                            value={
-                              line.sim
-                            }
+                            value={line.sim}
                             onChange={(e) =>
-                              update(
-                                line.id,
-                                "sim",
-                                e.target
-                                  .value
-                              )
+                              update(line.id, "sim", e.target.value)
                             }
                           >
-                            <option>
-                              SIM
-                            </option>
-                            <option>
-                              eSIM
-                            </option>
+                            <option>SIM</option>
+                            <option>eSIM</option>
                           </select>
                         </label>
 
                         <label>
                           Operador donante
                           <input
-                            value={
-                              line.donor
-                            }
+                            value={line.donor}
                             onChange={(e) =>
-                              update(
-                                line.id,
-                                "donor",
-                                e.target
-                                  .value
-                              )
+                              update(line.id, "donor", e.target.value)
                             }
                             placeholder="Operador actual"
                           />
@@ -746,16 +870,9 @@ function TelefoniaContent() {
                           Fecha portabilidad
                           <input
                             type="date"
-                            value={
-                              line.portDate
-                            }
+                            value={line.portDate}
                             onChange={(e) =>
-                              update(
-                                line.id,
-                                "portDate",
-                                e.target
-                                  .value
-                              )
+                              update(line.id, "portDate", e.target.value)
                             }
                           />
                         </label>
@@ -763,68 +880,36 @@ function TelefoniaContent() {
                         <label>
                           Estado
                           <select
-                            value={
-                              line.status
-                            }
+                            value={line.status}
                             onChange={(e) =>
-                              update(
-                                line.id,
-                                "status",
-                                e.target
-                                  .value
-                              )
+                              update(line.id, "status", e.target.value)
                             }
                           >
-                            <option>
-                              Pendiente
-                              BackOffice
-                            </option>
-
-                            <option>
-                              Solicitada
-                            </option>
-
-                            <option>
-                              Portabilidad
-                              confirmada
-                            </option>
-
-                            <option>
-                              Activada
-                            </option>
-
-                            <option>
-                              Incidencia
-                            </option>
+                            <option>Pendiente BackOffice</option>
+                            <option>Solicitada</option>
+                            <option>Portabilidad confirmada</option>
+                            <option>Activada</option>
+                            <option>Incidencia</option>
                           </select>
                         </label>
                       </>
                     )}
 
-                    {mode ===
-                      "Comercial" &&
-                      lines.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeLine(
-                              line.id
-                            )
-                          }
-                        >
-                          Eliminar línea
-                        </button>
-                      )}
+                    {mode === "Comercial" && lines.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeLine(line.id)}
+                      >
+                        Eliminar línea
+                      </button>
+                    )}
                   </div>
                 ))}
 
-                {mode ===
-                  "Comercial" && (
+                {mode === "Comercial" && (
                   <button
                     type="button"
-                    className={
-                      styles.phoneAdd
-                    }
+                    className={styles.phoneAdd}
                     onClick={addLine}
                   >
                     ＋ Añadir línea
@@ -835,19 +920,11 @@ function TelefoniaContent() {
           )}
 
           <article className={styles.block}>
-            <div
-              className={styles.blockHead}
-            >
-              <span>04</span>
-
+            <div className={styles.blockHead}>
+              <span>{hasFiber && hasMobile ? "05" : "04"}</span>
               <div>
-                <h2>
-                  Condiciones económicas
-                </h2>
-                <p>
-                  Resumen comercial de la
-                  venta.
-                </p>
+                <h2>Condiciones económicas</h2>
+                <p>Resumen comercial de la venta.</p>
               </div>
             </div>
 
@@ -859,14 +936,8 @@ function TelefoniaContent() {
                   min="0"
                   step=".01"
                   value={monthly}
-                  disabled={
-                    mode === "BackOffice"
-                  }
-                  onChange={(e) =>
-                    setMonthly(
-                      e.target.value
-                    )
-                  }
+                  disabled={mode === "BackOffice" && Boolean(opportunityId)}
+                  onChange={(e) => setMonthly(e.target.value)}
                 />
               </label>
 
@@ -877,14 +948,8 @@ function TelefoniaContent() {
                   min="0"
                   step=".01"
                   value={single}
-                  disabled={
-                    mode === "BackOffice"
-                  }
-                  onChange={(e) =>
-                    setSingle(
-                      e.target.value
-                    )
-                  }
+                  disabled={mode === "BackOffice" && Boolean(opportunityId)}
+                  onChange={(e) => setSingle(e.target.value)}
                 />
               </label>
 
@@ -892,12 +957,8 @@ function TelefoniaContent() {
                 IVA
                 <select
                   value={vat}
-                  disabled={
-                    mode === "BackOffice"
-                  }
-                  onChange={(e) =>
-                    setVat(e.target.value)
-                  }
+                  disabled={mode === "BackOffice" && Boolean(opportunityId)}
+                  onChange={(e) => setVat(e.target.value)}
                 >
                   <option>21</option>
                   <option>10</option>
@@ -908,38 +969,21 @@ function TelefoniaContent() {
           </article>
 
           {mode === "BackOffice" && (
-            <article
-              className={styles.block}
-            >
-              <div
-                className={styles.blockHead}
-              >
-                <span>05</span>
-
+            <article className={styles.block}>
+              <div className={styles.blockHead}>
+                <span>06</span>
                 <div>
-                  <h2>
-                    Tramitación BackOffice
-                  </h2>
-
-                  <p>
-                    Datos que no debe picar
-                    el comercial.
-                  </p>
+                  <h2>Tramitación BackOffice</h2>
+                  <p>Datos que no debe picar el comercial.</p>
                 </div>
               </div>
 
-              <div
-                className={styles.formGrid}
-              >
+              <div className={styles.formGrid}>
                 <label>
                   Referencia / nº pedido
                   <input
                     value={reference}
-                    onChange={(e) =>
-                      setReference(
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => setReference(e.target.value)}
                   />
                 </label>
 
@@ -948,25 +992,15 @@ function TelefoniaContent() {
                   <input
                     type="date"
                     value={activation}
-                    onChange={(e) =>
-                      setActivation(
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => setActivation(e.target.value)}
                   />
                 </label>
 
-                <label
-                  className={styles.span2}
-                >
+                <label className={styles.span2}>
                   Incidencias / notas
                   <textarea
                     value={notes}
-                    onChange={(e) =>
-                      setNotes(
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => setNotes(e.target.value)}
                     placeholder="Solo si BackOffice necesita dejar constancia..."
                   />
                 </label>
@@ -978,9 +1012,7 @@ function TelefoniaContent() {
             <button
               type="button"
               className={styles.secondary}
-              onClick={() =>
-                router.back()
-              }
+              onClick={() => router.back()}
             >
               Cancelar
             </button>
@@ -989,12 +1021,8 @@ function TelefoniaContent() {
               <>
                 <button
                   type="button"
-                  className={
-                    styles.secondary
-                  }
-                  onClick={() =>
-                    save("draft")
-                  }
+                  className={styles.secondary}
+                  onClick={() => save("draft")}
                 >
                   Guardar borrador
                 </button>
@@ -1002,11 +1030,10 @@ function TelefoniaContent() {
                 <button
                   type="button"
                   className={styles.primary}
-                  onClick={() =>
-                    save("send")
-                  }
+                  onClick={() => save("budget")}
+                  disabled={!roleReady}
                 >
-                  Enviar a BackOffice
+                  Generar presupuesto
                 </button>
               </>
             )}
@@ -1015,72 +1042,51 @@ function TelefoniaContent() {
               <button
                 type="button"
                 className={styles.primary}
-                onClick={() =>
-                  save("backoffice")
-                }
+                onClick={() => save("backoffice")}
+                disabled={!roleReady}
               >
-                Guardar tramitación
+                Guardar y tramitar
               </button>
             )}
           </div>
         </section>
 
         <aside className={styles.context}>
-          <article
-            className={styles.contextCard}
-          >
+          <article className={styles.contextCard}>
             <span>RESUMEN</span>
 
-            <h3>{saleType}</h3>
+            <h3>{selectedProduct?.name || "Sin producto"}</h3>
 
             <p>
-              {operator}
-              {hasMobile
-                ? ` · ${lines.length} línea(s)`
-                : " · Sin líneas móviles"}
+              {selectedProvider?.name || "Sin operador"}
+              {hasMobile ? ` · ${lines.length} línea(s)` : ""}
             </p>
 
-            <div
-              className={styles.phoneMoney}
-            >
-              <small>
-                Mensual IVA incl.
-              </small>
-              <strong>
-                {monthlyTotal.toFixed(2)} €
-              </strong>
+            <div className={styles.phoneMoney}>
+              <small>Mensual IVA incl.</small>
+              <strong>{monthlyTotal.toFixed(2)} €</strong>
 
-              <small>
-                Pago único IVA incl.
-              </small>
-              <strong>
-                {singleTotal.toFixed(2)} €
-              </strong>
+              <small>Pago único IVA incl.</small>
+              <strong>{singleTotal.toFixed(2)} €</strong>
 
-              <small>
-                Total primer año
-              </small>
-              <strong>
-                {firstYearTotal.toFixed(2)} €
-              </strong>
+              <small>Total primer año</small>
+              <strong>{firstYearTotal.toFixed(2)} €</strong>
             </div>
           </article>
 
-          <article
-            className={styles.advisor}
-          >
+          <article className={styles.advisor}>
             <span>FILOSOFÍA ONE</span>
 
             <h4>
               {mode === "Comercial"
-                ? "Vender, no tramitar"
+                ? "Elegir producto, no reconstruirlo"
                 : "Completar, no volver a picar"}
             </h4>
 
             <p>
               {mode === "Comercial"
-                ? "Pide solo lo que el comercial conoce durante la venta. ICCID y datos técnicos quedan para BackOffice."
-                : "BackOffice recibe la venta ya construida y añade únicamente los datos de alta, portabilidad y activación."}
+                ? "El producto y sus características vienen del catálogo. El comercial solo añade los datos propios de esta venta."
+                : "BackOffice recibe la venta ya construida y añade únicamente los datos técnicos de tramitación."}
             </p>
           </article>
         </aside>
@@ -1092,11 +1098,7 @@ function TelefoniaContent() {
 export default function TelefoniaPage() {
   return (
     <Suspense
-      fallback={
-        <div style={{ padding: 24 }}>
-          Cargando telefonía...
-        </div>
-      }
+      fallback={<div style={{ padding: 24 }}>Cargando telefonía...</div>}
     >
       <TelefoniaContent />
     </Suspense>

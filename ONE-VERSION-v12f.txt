@@ -1,0 +1,4 @@
+ONE v12f — nomenclatura unificada
+UI: Mis ofertas / Tramitaciones / Contratos / Ofertas
+Nuevo contrato: contratación directa ya no vuelve a Nueva oferta; abre formulario contractual con cliente en query.
+Nota técnica: rutas internas históricas se conservan para no romper APIs ni enlaces durante la migración.

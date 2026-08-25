@@ -55,7 +55,7 @@ export default function OportunidadesPage() {
   }
 
   function remove(id: string) {
-    if (!window.confirm("¿Eliminar esta oportunidad?")) return;
+    if (!window.confirm("¿Eliminar esta oferta?")) return;
     deleteOpportunity(id);
     reload();
   }
@@ -64,26 +64,26 @@ export default function OportunidadesPage() {
     <main className={styles.page}>
       <header className={styles.hero}>
         <div>
-          <span>ONE · NEGOCIOS</span>
-          <h1>Oportunidades</h1>
-          <p>Visualiza qué negocios están naciendo, cuáles esperan respuesta y cuáles ya han sido aceptados.</p>
+          <span>ONE · OFERTAS</span>
+          <h1>Ofertas</h1>
+          <p>Todas las propuestas comerciales de ONE: en preparación, enviadas, aceptadas o no cerradas.</p>
         </div>
         <Link className={styles.primary} href="/oportunidades/nuevo">
-          + Nuevo negocio
+          + Nueva oferta
         </Link>
       </header>
 
       <section className={styles.kpis}>
-        <Kpi label="Pipeline abierto" value={formatMoney(totalValue)} note="Sin oportunidades perdidas" />
+        <Kpi label="Pipeline abierto" value={formatMoney(totalValue)} note="Sin ofertas no cerradas" />
         <Kpi label="Valor ponderado" value={formatMoney(weightedValue)} note="Según probabilidad" />
         <Kpi label="Aceptadas" value={accepted} note="Pendientes de completar datos" />
-        <Kpi label="Negocios activos" value={records.filter((item) => item.stage !== "Perdida").length} note="En todo el pipeline" />
+        <Kpi label="Ofertas activas" value={records.filter((item) => item.stage !== "Perdida").length} note="En todo el pipeline" />
       </section>
 
       <section className={styles.toolbar}>
         <div>
           <h2>Tablero comercial</h2>
-          <p>La oportunidad avanza cambiando de estado, no duplicando información.</p>
+          <p>La oferta avanza cambiando de estado, sin duplicar la información del cliente.</p>
         </div>
         <label className={styles.search}>
           <span>⌕</span>
@@ -130,9 +130,9 @@ export default function OportunidadesPage() {
                     <footer>
                       <span>{item.commercial || "Sin comercial"}</span>
                       <div className={styles.actions}>
-                        {item.stage === "Borrador" && <button onClick={() => move(item.id, "Propuesta")}>Preparar propuesta</button>}
-                        {item.stage === "Propuesta" && <button onClick={() => move(item.id, "Aceptada")}>Marcar aceptada</button>}
-                        {item.stage === "Aceptada" && <button onClick={() => move(item.id, "Propuesta")}>Reabrir</button>}
+                        {item.stage === "Borrador" && <Link className={styles.actionLink} href={`/oportunidades/${item.id}`}>Preparar oferta</Link>}
+                        {item.stage === "Propuesta" && <Link className={styles.actionLink} href={`/oportunidades/${item.id}`}>Abrir oferta</Link>}
+                        {item.stage === "Aceptada" && <Link className={styles.actionLink} href={`/oportunidades/${item.id}`}>Continuar contratación</Link>}
                         {item.stage === "Perdida" && <button onClick={() => move(item.id, "Borrador")}>Recuperar</button>}
                         {item.stage !== "Perdida" && <button className={styles.secondary} onClick={() => move(item.id, "Perdida")}>No cerrada</button>}
                         <button className={styles.danger} onClick={() => remove(item.id)}>×</button>

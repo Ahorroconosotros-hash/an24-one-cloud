@@ -212,7 +212,7 @@ function NewEnergyOpportunityContent() {
       },
     };
 
-    createOpportunity(opportunity);
+    const createdOpportunity=createOpportunity(opportunity);
 
     createEnergyLifecycleAlerts({
       clientId: client.id,
@@ -227,7 +227,7 @@ function NewEnergyOpportunityContent() {
       churnAlert,
       churnReason,
     });
-    router.push(`/clientes/${client.id}`);
+    router.push(`/oportunidades/${createdOpportunity.id}`);
   }
 
   function addDocument(file: File | null) {
@@ -239,7 +239,7 @@ function NewEnergyOpportunityContent() {
     <main className={styles.page}>
       <div className={styles.crumb}>
         <Link href={client ? `/clientes/${client.id}` : "/clientes"}>Cliente 360º</Link>
-        <span>/</span><Link href={`/oportunidades/nuevo?cliente=${clientId}`}>Nueva oportunidad</Link>
+        <span>/</span><Link href={`/oportunidades/nuevo?cliente=${clientId}`}>Nuevo presupuesto</Link>
         <span>/</span><strong>Energía</strong>
       </div>
 

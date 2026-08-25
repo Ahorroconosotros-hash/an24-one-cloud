@@ -61,13 +61,13 @@ function InmobiliariaContent(){
     detail:`${propertyType}${cadastralReference ? ` · Ref. catastral ${cadastralReference}` : ""}${price ? ` · ${Number(price).toLocaleString("es-ES")} €` : ""}`,
     user:client?.commercial||"Usuario actual"
    });
-   router.push(`/clientes/${clientId}`);
+   router.push(`/oportunidades/${opportunity.id}`);
   }catch{
    alert("No se ha podido guardar la oportunidad.");
   }
  }
  return <main className={styles.page}>
-  <header className={styles.hero}><div><button type="button" onClick={()=>router.back()} >← Oportunidades</button><span>ONE · INMOBILIARIA</span><h1>Nueva oportunidad · Inmobiliaria</h1><p>Misma forma de trabajar: ONE solo pide lo necesario para esta operación.</p></div></header>
+  <header className={styles.hero}><div><button type="button" onClick={()=>router.back()} >← Oportunidades</button><span>ONE · INMOBILIARIA</span><h1>Nuevo presupuesto · Inmobiliaria</h1><p>Misma forma de trabajar: ONE solo pide lo necesario para esta operación.</p></div></header>
   <div className={styles.workspace}><section className={styles.workArea}>
    <article className={styles.block}><div className={styles.blockHead}><span>01</span><div><h2>Cliente y operación</h2><p>Selecciona lo esencial; ONE reutiliza el resto.</p></div></div><div className={styles.formGrid}>
     <label>Cliente *<select value={clientId} onChange={e=>setClientId(e.target.value)}><option value="">Seleccionar cliente</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name} · {c.taxId}</option>)}</select></label>

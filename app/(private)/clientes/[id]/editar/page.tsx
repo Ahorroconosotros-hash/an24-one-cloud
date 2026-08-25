@@ -4,15 +4,31 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import ClienteForm from "../../ClienteForm";
-import { ClientRecord, getClient } from "@/lib/clientes";
+import { ClientRecord } from "@/lib/clientes";
 import styles from "../../nuevo/NuevoCliente.module.css";
+import { getCurrentOneUser } from "@/lib/current-one-user-client";
+import { supabaseBrowser } from "@/lib/supabase-browser";
+import { saveClients, loadClients } from "@/lib/clientes";
 
 export default function EditarClientePage() {
   const params = useParams<{ id: string }>();
   const [client, setClient] = useState<ClientRecord | null | undefined>(undefined);
 
   useEffect(() => {
-    setClient(getClient(params.id));
+    let active = true;
+    (async () => {
+      await getCurrentOneUser();
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      if (!session?.access_token) throw new Error("Sesión no encontrada");
+      const response = await fetch(`/api/one-clients?id=${encodeURIComponent(params.id)}`, { headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok || !data?.client) throw new Error(data?.error || "Cliente no encontrado");
+      if (!active) return;
+      const local = loadClients();
+      saveClients([data.client, ...local.filter((c) => c.id !== data.client.id)]);
+      setClient(data.client);
+    })().catch(() => { if (active) setClient(null); });
+    return () => { active = false; };
   }, [params.id]);
 
   if (client === undefined) return <div>Cargando cliente...</div>;

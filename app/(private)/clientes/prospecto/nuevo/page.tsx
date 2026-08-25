@@ -4,13 +4,14 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ClientRecord,
   ClientType,
-  createClient,
   emptyClientDraft,
   findDuplicateClients,
 } from "@/lib/clientes";
-import { addClientActivity } from "@/lib/client-activity";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 import styles from "./Prospecto.module.css";
+import { getCurrentOneUser } from "@/lib/current-one-user-client";
 
 export default function NuevoProspectoPage() {
   const router = useRouter();
@@ -24,14 +25,14 @@ export default function NuevoProspectoPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const current =
-      window.localStorage.getItem("one_current_user_name") ||
-      window.localStorage.getItem("one_user_name") ||
-      "Usuario actual";
-    setCommercial(current);
+    let active = true;
+    getCurrentOneUser()
+      .then((user) => { if (active) setCommercial(user.name); })
+      .catch(() => { if (active) setCommercial("Usuario actual"); });
+    return () => { active = false; };
   }, []);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
 
@@ -64,26 +65,66 @@ export default function NuevoProspectoPage() {
     setSaving(true);
 
     try {
-      const prospect = createClient({
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      if (!session?.access_token) throw new Error("Sesión no encontrada.");
+
+      const draft = {
         ...emptyClientDraft(),
         type,
-        status: "Prospecto",
+        status: "Prospecto" as const,
         name: name.trim(),
         mobile: phone.trim(),
+        phone: phone.trim(),
         email: email.trim(),
         commercial,
         notes: note.trim(),
+      };
+
+      const response = await fetch("/api/one-clients", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ client: draft }),
       });
 
-      addClientActivity({
-        clientId: prospect.id,
-        type: "Prospecto creado",
-        title: "Prospecto creado",
-        detail: note.trim()
-          ? `Captación rápida · ${note.trim()}`
-          : "Captación rápida. Pendiente de primer contacto.",
-        user: commercial,
-      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok || !payload?.client) {
+        throw new Error(payload?.error || "No se ha podido crear el prospecto.");
+      }
+
+      const prospect = payload.client as ClientRecord;
+
+      // Cache local solo para pantallas heredadas. Supabase ya es la fuente maestra.
+      try {
+        const raw = window.localStorage.getItem("one_clients_v1");
+        const local = raw ? JSON.parse(raw) : [];
+        const next = Array.isArray(local)
+          ? [prospect, ...local.filter((item: ClientRecord) => item.id !== prospect.id)]
+          : [prospect];
+        window.localStorage.setItem("one_clients_v1", JSON.stringify(next));
+      } catch {}
+
+      // Registrar la captación en el timeline central del cliente.
+      try {
+        await fetch("/api/client-timeline", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            clientId: prospect.id,
+            eventType: "Prospecto creado",
+            title: "Prospecto creado",
+            detail: note.trim()
+              ? `Captación rápida · ${note.trim()}`
+              : "Captación rápida. Pendiente de primer contacto.",
+            channel: "Comercial",
+          }),
+        });
+      } catch {}
 
       router.push(`/clientes/${prospect.id}`);
       router.refresh();

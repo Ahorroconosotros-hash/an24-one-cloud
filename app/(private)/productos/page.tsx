@@ -189,6 +189,8 @@ export default function Productos(){
   const [targetRules,setTargetRules]=useState<any[]>([]);
   const [acceleratorRules,setAcceleratorRules]=useState<any[]>([]);
   const [clawbackRules,setClawbackRules]=useState<any[]>([]);
+  const [saving,setSaving]=useState(false);
+  const [migratingLegacy,setMigratingLegacy]=useState(false);
 
   const [open,setOpen]=useState(false);
   const [editingId,setEditingId]=useState<string|null>(null);
@@ -204,39 +206,60 @@ export default function Productos(){
   const [providerEditId,setProviderEditId]=useState<string|null>(null);
   const [providerForm,setProviderForm]=useState({service:"Energía",name:"",logo:"",referenceOnly:false});
 
+  const loadCatalog=async()=>{
+    const r=await fetch("/api/catalog",{cache:"no-store"});
+    const data=await r.json();
+
+    if(!r.ok||!data.ok){
+      throw new Error(data.error||"No se pudo cargar catálogo");
+    }
+
+    const ps:Provider[]=(data.providers||[]).map((p:any)=>({
+      id:p.id,
+      service:p.service||"",
+      name:p.name||"",
+      active:p.active!==false,
+      logo:p.logo||"",
+      referenceOnly:Boolean(p.reference_only)
+    }));
+
+    const products:Product[]=(data.products||[]).map((p:any)=>({
+      id:p.id,
+      service:p.service||p.category||"",
+      providerId:p.provider_id||"",
+      company:ps.find(x=>x.id===p.provider_id)?.name||"",
+      name:p.name||"",
+      features:p.description||p.config?.features||p.config?.phone_type||"",
+      active:p.active!==false,
+      productType:p.product_type||p.config?.phone_type||"",
+      operationType:p.operation_type||"",
+      pvp:Number(p.pvp||0),
+    }));
+
+    setProviders(ps);
+    setItems(products);
+    setCommissionRules(data.commissionRules||[]);
+    setCommercialRules(data.commercialCommissionRules||[]);
+    setTargetRules(data.targetRules||[]);
+    setAcceleratorRules(data.acceleratorRules||[]);
+    setClawbackRules(data.clawbackRules||[]);
+  };
+
   useEffect(()=>{
     let cancelled=false;
+
     (async()=>{
       try{
-        const r=await fetch("/api/catalog",{cache:"no-store"});
-        const data=await r.json();
-        if(!r.ok||!data.ok) throw new Error(data.error||"No se pudo cargar catálogo");
-
-        const ps:Provider[]=(data.providers||[]).map((p:any)=>({
-          id:p.id, service:p.service||"", name:p.name||"", active:p.active!==false,
-          logo:p.logo||"", referenceOnly:Boolean(p.reference_only)
-        }));
-        const products:Product[]=(data.products||[]).map((p:any)=>({
-          id:p.id,
-          service:p.service||p.category||"",
-          providerId:p.provider_id||"",
-          company:ps.find(x=>x.id===p.provider_id)?.name||"",
-          name:p.name||"",
-          features:p.description||p.config?.features||p.config?.phone_type||"",
-          active:p.active!==false,
-          productType:p.product_type||p.config?.phone_type||"",
-          operationType:p.operation_type||"",
-          pvp:Number(p.pvp||0),
-        }));
-        if(cancelled) return;
-        setProviders(ps); setItems(products);
-        setCommissionRules(data.commissionRules||[]);
-        setCommercialRules(data.commercialCommissionRules||[]);
-        setTargetRules(data.targetRules||[]);
-        setAcceleratorRules(data.acceleratorRules||[]);
-        setClawbackRules(data.clawbackRules||[]);
-      }catch(e){ console.error("ONE Cloud · catálogo",e); if(!cancelled){setProviders([]);setItems([]);} }
+        await loadCatalog();
+      }catch(e){
+        console.error("ONE Cloud · catálogo",e);
+        if(!cancelled){
+          setProviders([]);
+          setItems([]);
+        }
+      }
     })();
+
     return()=>{cancelled=true};
   },[]);
 
@@ -293,19 +316,196 @@ export default function Productos(){
   const mainRule=(id:string)=>commissionRules.find(r=>r.product_id===id&&r.active!==false);
   const commercialRule=(id:string,k:ProfileKey)=>commercialRules.find(r=>r.product_id===id&&r.active!==false&&profileName(r.profile_type)===k);
 
-  const saveProductsLocal=(next:Product[])=>{ setItems(next); localStorage.setItem("one_product_catalog",JSON.stringify(next)); };
-  const submit=()=>{
-    const provider=providers.find(p=>p.id===form.providerId); if(!provider||!form.name.trim()) return;
-    const payload:Product={id:editingId||crypto.randomUUID(),service:form.service,providerId:provider.id,company:provider.name,name:form.name.trim(),features:form.features.trim(),active:true,productType:form.productType,operationType:form.operationType,pvp:Number(form.pvp)||0};
-    saveProductsLocal(editingId?items.map(p=>p.id===editingId?{...p,...payload}:p):[...items,payload]);
-    setOpen(false);
+  const submit=async()=>{
+    const provider=providers.find(p=>p.id===form.providerId);
+
+    if(!provider){
+      alert("Selecciona un proveedor.");
+      return;
+    }
+
+    if(!form.name.trim()){
+      alert("Indica el nombre del producto.");
+      return;
+    }
+
+    setSaving(true);
+
+    try{
+      const existing=editingId?items.find(p=>p.id===editingId):null;
+
+      const r=await fetch("/api/catalog-admin",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          action:"save-product",
+          product:{
+            id:editingId||null,
+            providerId:provider.id,
+            service:form.service,
+            name:form.name.trim(),
+            description:form.features.trim(),
+            productType:form.productType,
+            operationType:form.operationType,
+            pvp:Number(form.pvp)||0,
+            active:existing?.active!==false,
+            config:{
+              features:form.features.trim(),
+              phone_type:form.productType
+            }
+          },
+          an24Rule:{
+            operationType:form.operationType,
+            commissionMode:form.an24Mode,
+            fixedAmount:form.an24Fixed,
+            percentage:form.an24Percentage,
+            percentageBase:form.an24Base,
+            recurringAmount:form.an24Recurring,
+            recurringPercentage:form.an24RecurringPercentage,
+            recurringBase:form.an24RecurringBase,
+            points:form.an24Points,
+            side:form.side,
+            roleContext:form.roleContext
+          },
+          commercialProfiles:profiles.map(({key})=>({
+            profileType:key,
+            fixedAmount:profileForms[key].fixed
+          })),
+          target:{
+            enabled:form.targetEnabled,
+            min:form.targetMin,
+            max:form.targetMax,
+            bonus:form.targetBonus
+          },
+          accelerator:{
+            enabled:form.acceleratorEnabled,
+            from:form.acceleratorFrom,
+            to:form.acceleratorTo,
+            bonus:form.acceleratorBonus
+          },
+          clawback:{
+            enabled:form.clawbackEnabled,
+            months:form.clawbackMonths,
+            percentage:form.clawbackPercentage
+          }
+        })
+      });
+
+      const raw=await r.text();
+      let d:any;
+
+      try{
+        d=JSON.parse(raw);
+      }catch{
+        throw new Error(`ONE Cloud devolvió una respuesta no válida (${r.status}).`);
+      }
+
+      if(!r.ok||!d.ok){
+        throw new Error(d.error||"No se pudo guardar el producto.");
+      }
+
+      await loadCatalog();
+      setOpen(false);
+
+      alert(
+        editingId
+          ?"Producto y comisiones guardados correctamente en ONE Cloud."
+          :"Producto creado con sus comisiones en ONE Cloud."
+      );
+    }catch(e:any){
+      alert(e?.message||"No se pudo guardar el producto.");
+    }finally{
+      setSaving(false);
+    }
   };
-  const toggleActive=(id:string)=>saveProductsLocal(items.map(p=>p.id===id?{...p,active:!p.active}:p));
+
+  const toggleActive=async(id:string)=>{
+    const product=items.find(p=>p.id===id);
+    if(!product) return;
+
+    try{
+      const r=await fetch("/api/catalog-admin",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          action:"toggle-product",
+          id,
+          active:!product.active
+        })
+      });
+
+      const d=await r.json();
+      if(!r.ok||!d.ok) throw new Error(d.error||"No se pudo cambiar el estado.");
+      await loadCatalog();
+    }catch(e:any){
+      alert(e?.message||"No se pudo cambiar el estado del producto.");
+    }
+  };
 
   const openProviderCreate=()=>{setProviderEditId(null);setProviderForm({service:"Energía",name:"",logo:"",referenceOnly:false});setProvidersOpen(true)};
   const openProviderEdit=(p:Provider)=>{setProviderEditId(p.id);setProviderForm({service:p.service,name:p.name,logo:p.logo||"",referenceOnly:!!p.referenceOnly});setProvidersOpen(true)};
-  const saveProvider=()=>{const name=providerForm.name.trim();if(!name)return;setProviders(providerEditId?providers.map(p=>p.id===providerEditId?{...p,...providerForm,name}:p):[...providers,{id:crypto.randomUUID(),...providerForm,name,active:true}]);setProvidersOpen(false)};
-  const toggleProvider=(id:string)=>setProviders(providers.map(p=>p.id===id?{...p,active:!p.active}:p));
+
+  const saveProvider=async()=>{
+    const name=providerForm.name.trim();
+
+    if(!name){
+      alert("Indica el nombre del proveedor.");
+      return;
+    }
+
+    try{
+      const r=await fetch("/api/catalog-admin",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          action:"save-provider",
+          provider:{
+            id:providerEditId||null,
+            service:providerForm.service,
+            name,
+            logo:providerForm.logo||null,
+            referenceOnly:providerForm.referenceOnly,
+            active:providerEditId
+              ? providers.find(p=>p.id===providerEditId)?.active!==false
+              : true
+          }
+        })
+      });
+
+      const d=await r.json();
+      if(!r.ok||!d.ok) throw new Error(d.error||"No se pudo guardar el proveedor.");
+
+      await loadCatalog();
+      setProvidersOpen(false);
+
+      alert(providerEditId?"Proveedor actualizado en ONE Cloud.":"Proveedor creado en ONE Cloud.");
+    }catch(e:any){
+      alert(e?.message||"No se pudo guardar el proveedor.");
+    }
+  };
+
+  const toggleProvider=async(id:string)=>{
+    const provider=providers.find(p=>p.id===id);
+    if(!provider) return;
+
+    try{
+      const r=await fetch("/api/catalog-admin",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          action:"toggle-provider",
+          id,
+          active:!provider.active
+        })
+      });
+
+      const d=await r.json();
+      if(!r.ok||!d.ok) throw new Error(d.error||"No se pudo cambiar el estado del proveedor.");
+      await loadCatalog();
+    }catch(e:any){
+      alert(e?.message||"No se pudo cambiar el estado del proveedor.");
+    }
+  };
   const onProviderLogo=(file?:File)=>{if(!file)return;const reader=new FileReader();reader.onload=()=>setProviderForm(v=>({...v,logo:String(reader.result||"")}));reader.readAsDataURL(file)};
 
   const currentBases=bases(form.service);
@@ -366,10 +566,43 @@ export default function Productos(){
 
         {(form.service==="Telefonía"||form.service==="Energía"||form.service==="Alarmas")&&<div style={box}><h3>↩️ Clawback / retrocomisión</h3><label style={{display:"flex",gap:8,alignItems:"center"}}><input type="checkbox" checked={form.clawbackEnabled} onChange={e=>setForm({...form,clawbackEnabled:e.target.checked})}/> Este producto tiene clawback</label>{form.clawbackEnabled&&<div style={{...grid3,marginTop:12}}><label>Meses<input type="number" value={form.clawbackMonths} onChange={e=>setForm({...form,clawbackMonths:e.target.value})}/></label><label>Retrocomisión (%)<input type="number" step="0.01" value={form.clawbackPercentage} onChange={e=>setForm({...form,clawbackPercentage:e.target.value})}/></label></div>}</div>}
 
-        <div style={box}><h3>👥 Comisión por tipo de comercial</h3><div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:14}}>{profiles.map(({key,icon})=>{const pf=profileForms[key];return <div key={key} style={{background:"#fff",border:"1px solid #e6e6e6",borderRadius:12,padding:14}}><strong>{icon} {key}</strong><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:10}}><label style={{gridColumn:"1 / -1"}}>Tipo<select value={pf.mode} onChange={e=>setProfileForms({...profileForms,[key]:{...pf,mode:e.target.value as Mode}})}><option value="fixed">Importe fijo</option><option value="percentage">Porcentaje</option><option value="mixed">Fijo + porcentaje</option></select></label>{(pf.mode==="fixed"||pf.mode==="mixed")&&<label>Fijo (€)<input type="number" step="0.01" value={pf.fixed} onChange={e=>setProfileForms({...profileForms,[key]:{...pf,fixed:e.target.value}})}/></label>}{(pf.mode==="percentage"||pf.mode==="mixed")&&<label>Porcentaje (%)<input type="number" step="0.01" value={pf.percentage} onChange={e=>setProfileForms({...profileForms,[key]:{...pf,percentage:e.target.value}})}/></label>}{(pf.mode==="percentage"||pf.mode==="mixed")&&<label style={{gridColumn:"1 / -1"}}>Calculado sobre<select value={pf.base} onChange={e=>setProfileForms({...profileForms,[key]:{...pf,base:e.target.value}})}><option value="provider_commission">Comisión AN24</option><option value="sale_price">Precio operación</option><option value="premium">Prima</option><option value="monthly_fee">Cuota</option><option value="custom">Otra base</option></select></label>}{form.service==="Telefonía"&&<label style={{gridColumn:"1 / -1"}}>Puntos<input type="number" step="0.01" value={pf.points} onChange={e=>setProfileForms({...profileForms,[key]:{...pf,points:e.target.value}})}/></label>}</div></div>})}</div></div>
+        <div style={box}>
+          <h3>👥 Comisión fija por tipo de comercial</h3>
+          <p style={{margin:"4px 0 14px",fontSize:12,color:"#666"}}>
+            Estas son las únicas cantidades que se trasladarán al Anexo de condiciones económicas.
+            Las comisiones porcentuales no se muestran ni se liquidan al comercial desde este bloque.
+          </p>
+
+          <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:14}}>
+            {profiles.map(({key,icon})=>{
+              const pf=profileForms[key];
+              return <div key={key} style={{background:"#fff",border:"1px solid #e6e6e6",borderRadius:12,padding:14}}>
+                <strong>{icon} {key}</strong>
+                <label style={{display:"block",marginTop:10}}>
+                  Comisión fija (€)
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={pf.fixed}
+                    onChange={e=>setProfileForms({
+                      ...profileForms,
+                      [key]:{...pf,mode:"fixed",fixed:e.target.value,percentage:"",points:""}
+                    })}
+                    placeholder="0,00"
+                  />
+                </label>
+              </div>
+            })}
+          </div>
+
+          <div style={{marginTop:14,fontSize:11,color:"#777"}}>
+            Las comisiones comerciales de este producto se guardan directamente en ONE Cloud.
+          </div>
+        </div>
       </div>
-      <div style={{margin:"14px 0",padding:12,borderRadius:10,border:"1px solid #ffd7cc",background:"#fff7f4",fontSize:13}}>Este paso cambia el formulario al motor nuevo. El siguiente conecta Guardar con Supabase para products + commission_rules + commercial_commission_rules + objetivos + aceleradores + clawback.</div>
-      <div className={styles.actions}><button className={styles.cancel} onClick={()=>setOpen(false)}>Cancelar</button><button className={styles.primary} onClick={submit} disabled={!form.providerId}>{editingId?"Guardar cambios":"Guardar producto"}</button></div>
+      <div style={{margin:"14px 0",padding:12,borderRadius:10,border:"1px solid #ffd7cc",background:"#fff7f4",fontSize:13}}>Proveedor, producto y todas sus reglas se guardan directamente en ONE Cloud.</div>
+      <div className={styles.actions}><button className={styles.cancel} onClick={()=>setOpen(false)}>Cancelar</button><button className={styles.primary} onClick={submit} disabled={!form.providerId||saving}>{saving?"Guardando en ONE Cloud...":editingId?"Guardar cambios":"Guardar producto"}</button></div>
     </div></div>}
 
     {providersOpen&&<div className={styles.overlay} onMouseDown={()=>setProvidersOpen(false)}><div className={`${styles.modal} ${styles.providerModal}`} onMouseDown={e=>e.stopPropagation()}><div className={styles.modalHead}><div><span>PROVEEDORES</span><h2>{providerEditId?"Editar proveedor":"Nuevo proveedor"}</h2></div><button className={styles.close} onClick={()=>setProvidersOpen(false)}>×</button></div><div className={styles.providerManager}><div className={styles.providerForm}><label>Servicio<select value={providerForm.service} onChange={e=>setProviderForm({...providerForm,service:e.target.value})}>{services.map(s=><option key={s}>{s}</option>)}</select></label><label>Nombre del proveedor<input value={providerForm.name} onChange={e=>setProviderForm({...providerForm,name:e.target.value})} placeholder="Ej. Finetwork, GANA, SEGURMA..."/></label><label>Logo<input type="file" accept="image/*" onChange={e=>onProviderLogo(e.target.files?.[0])}/></label>{providerForm.service==="Energía"&&<label className={styles.referenceCheck}><input type="checkbox" checked={providerForm.referenceOnly} onChange={e=>setProviderForm({...providerForm,referenceOnly:e.target.checked})}/><span><strong>Solo comercializadora de referencia</strong><small>Aparece como compañía actual/anterior, pero no como proveedor para vender.</small></span></label>}{providerForm.logo&&<img className={styles.logoPreview} src={providerForm.logo} alt=""/>}<div className={styles.actions}><button className={styles.cancel} onClick={()=>setProvidersOpen(false)}>Cancelar</button><button className={styles.primary} onClick={saveProvider}>{providerEditId?"Guardar cambios":"Crear proveedor"}</button></div></div><div className={styles.providerList}><h3>Proveedores creados</h3>{providers.map(p=><div className={styles.providerItem} key={p.id}>{p.logo?<img src={p.logo} alt=""/>:<b>{p.name.slice(0,2)}</b>}<div><strong>{p.name}</strong><small>{p.service} · {p.referenceOnly?"Solo referencia":p.active?"Activo":"Inactivo"}</small></div><button onClick={()=>openProviderEdit(p)}>Editar</button><button onClick={()=>toggleProvider(p.id)}>{p.active?"Desactivar":"Reactivar"}</button></div>)}</div></div></div></div>}

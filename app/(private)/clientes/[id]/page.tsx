@@ -1,213 +1,140 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ClientRecord, getClient, trashClient } from "@/lib/clientes";
-import { getClientContracts, OneContract } from "@/lib/contratos";
-import { loadOpportunities, OpportunityRecord } from "@/lib/oportunidades";
-import { getEnergyContractsByClient } from "@/lib/energy-contracts";
-import { addClientActivity, ClientActivity, loadClientActivities } from "@/lib/client-activity";
 import styles from "./Cliente.module.css";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
-const serviceCatalog = [
-  { key: "Energía", icon: "⚡", note: "Luz y gas" },
-  { key: "Telefonía", icon: "📱", note: "Fibra, líneas y terminales" },
-  { key: "Alarmas", icon: "🛡️", note: "Sistemas y accesorios" },
-  { key: "Seguros", icon: "🏠", note: "Pólizas" },
-];
-
-const stageTone: Record<string, string> = {
-  Borrador: "gray", Pendiente: "yellow", "En curso": "blue", Tramitado: "purple",
-  Activado: "green", Rechazado: "orange", Cancelado: "red", Baja: "dark",
+type Client = {
+  id:string; reference:string; type:string; status:string; name:string; taxId:string;
+  birthDate?:string; incorporationDate?:string; iban?:string; phone?:string; mobile?:string;
+  email?:string; address?:string; postalCode?:string; city?:string; province?:string; sector?:string;
+  commercial?:string; services?:string[]; notes?:string; createdAt:string; updatedAt:string;
 };
+type Offer = any;
+type Contract = any;
+type TimelineEvent = any;
 
-export default function ClientePage() {
-  const params = useParams<{ id: string }>();
-  const router = useRouter();
-  const [client, setClient] = useState<ClientRecord | null | undefined>(undefined);
-  const [contracts, setContracts] = useState<OneContract[]>([]);
-  const [opportunities, setOpportunities] = useState<OpportunityRecord[]>([]);
-  const [activities, setActivities] = useState<ClientActivity[]>([]);
-  const [energyTickets, setEnergyTickets] = useState<Array<{id:string; title:string; status:string; contractId:string}>>([]);
+type Payload = { client:Client; offers:Offer[]; contracts:Contract[]; timeline:TimelineEvent[]; viewer?:{name:string;role:string} };
 
-  function reload() {
-    const next = getClient(params.id);
-    setClient(next);
-    setContracts(getClientContracts(params.id));
-    setOpportunities(loadOpportunities().filter((item) => item.clientId === params.id));
-    setActivities(loadClientActivities(params.id));
-    setEnergyTickets(
-      getEnergyContractsByClient(params.id).flatMap((contract) =>
-        contract.tickets.filter((ticket) => ticket.status !== "Resuelto").map((ticket) => ({
-          id: ticket.id, title: ticket.title, status: ticket.status, contractId: contract.id,
-        }))
-      )
-    );
+export default function Cliente360Page(){
+  const params = useParams<{id:string}>();
+  const [data,setData]=useState<Payload|null|undefined>(undefined);
+  const [error,setError]=useState("");
+
+  async function authHeaders(){
+    const {data:{session}}=await supabaseBrowser.auth.getSession();
+    if(!session?.access_token) throw new Error("Sesión no encontrada");
+    return {Authorization:`Bearer ${session.access_token}`};
   }
 
-  useEffect(() => { reload(); }, [params.id]);
-
-  const activeContracts = useMemo(() => contracts.filter((item) => item.status === "Activo"), [contracts]);
-  const openOpportunities = useMemo(() => opportunities.filter((item) => !["Activado", "Rechazado", "Cancelado", "Baja"].includes(item.stage)), [opportunities]);
-  const activeServices = useMemo(() => new Set(activeContracts.map((item) => item.service)), [activeContracts]);
-  const productRatio = `${activeServices.size}/${serviceCatalog.length}`;
-
-  if (client === undefined) return <div className={styles.notFound}>Cargando Cliente 360º...</div>;
-  if (!client) return <div className={styles.notFound}><h1>Cliente no encontrado</h1><Link href="/clientes">Volver</Link></div>;
-
-  function register(type: "Llamada" | "Email" | "WhatsApp" | "Nota") {
-    const detail = window.prompt(type === "Llamada" ? "Resultado de la llamada:" : type === "Nota" ? "Escribe la nota:" : `Detalle de ${type}:`, "");
-    if (detail === null) return;
-    addClientActivity({
-      clientId: client!.id,
-      type,
-      title: type === "Llamada" ? "Llamada registrada" : type === "Nota" ? "Nota añadida" : `${type} registrado`,
-      detail: detail || "Sin observaciones",
-      user: client!.commercial || "Usuario actual",
-    });
-    reload();
+  async function load(){
+    try{
+      setError(""); setData(undefined);
+      const headers=await authHeaders();
+      const r=await fetch(`/api/client-360?clientId=${encodeURIComponent(params.id)}`,{headers,cache:"no-store"});
+      const j=await r.json();
+      if(!r.ok||!j?.ok||!j?.client) throw new Error(j?.error||"Cliente no encontrado");
+      setData({client:j.client,offers:j.offers||[],contracts:j.contracts||[],timeline:j.timeline||[],viewer:j.viewer});
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar el cliente");setData(null)}
   }
 
-  function remove() {
-    if (!window.confirm("¿Enviar este cliente a la papelera?")) return;
-    trashClient(client!.id); router.push("/clientes");
+  useEffect(()=>{load()},[params.id]);
+
+  async function addTimeline(eventType:string,title:string,detail?:string,channel?:string){
+    const headers=await authHeaders();
+    const r=await fetch('/api/client-timeline',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({clientId:params.id,eventType,title,detail,channel})});
+    const j=await r.json();
+    if(!r.ok) throw new Error(j?.error||'No se pudo registrar la actividad');
+    await load();
   }
 
-  const timeline = [
-    ...activities.map((item) => ({ id:item.id, date:item.createdAt, kind:item.type, title:item.title, detail:item.detail })),
-    ...opportunities.map((item) => ({ id:`opp-${item.id}`, date:item.createdAt, kind:"Oportunidad", title:`Oportunidad ${item.service} · ${item.stage}`, detail:item.title || item.product || item.reference })),
-    ...contracts.map((item) => ({ id:`ctr-${item.id}`, date:item.createdAt, kind:"Contrato", title:`Contrato ${item.service} · ${item.status}`, detail:`${item.reference} · ${item.provider} · ${item.mainProduct}` })),
-    { id:`client-${client.id}`, date:client.createdAt, kind:client.status === "Prospecto" ? "Prospecto" : "Cliente", title:client.status === "Prospecto" ? "Prospecto creado" : "Cliente creado", detail:`${client.reference} · ${client.commercial || "Sin comercial"}` },
-  ].sort((a,b) => b.date.localeCompare(a.date));
+  if(data===undefined) return <div className={styles.notFound}>Cargando Cliente 360º…</div>;
+  if(!data) return <div className={styles.notFound}><h1>Cliente no encontrado</h1><p>{error}</p><p><code>{params.id}</code></p><Link href="/clientes">Volver a clientes</Link></div>;
 
-  return (
-    <main className={styles.page}>
-      <div className={styles.crumb}><Link href="/clientes">Clientes</Link><span>/</span><strong>Cliente 360º</strong></div>
+  const {client,offers,contracts,timeline,viewer}=data;
+  const activeContracts=contracts.filter(c=>!["Borrador","Anulado","Baja"].includes(String(c.status||"")));
+  const last=timeline[0];
+  const phone=client.mobile||client.phone||"";
 
-      <header className={styles.hero}>
-        <div className={styles.avatar}>{initials(client.name)}</div>
-        <div className={styles.identity}>
-          <div className={styles.titleLine}><span className={styles.eyebrow}>CLIENTE 360º</span><span className={`${styles.status} ${client.status === "Prospecto" ? styles.prospect : styles.client}`}>{client.status}</span></div>
-          <h1>{client.name}</h1>
-          <p>{client.taxId || "DNI/CIF pendiente"} · {client.reference} · {client.type}</p>
-          <div className={styles.ownerLine}><span>Comercial <strong>{client.commercial || "Usuario actual"}</strong></span><span>Alta <strong>{formatShort(client.createdAt)}</strong></span><span>Última gestión <strong>{timeline[0] ? formatRelative(timeline[0].date) : "Sin actividad"}</strong></span></div>
-        </div>
-        <div className={styles.actions}>
-          {(client.mobile || client.phone) && <a href={`tel:${client.mobile || client.phone}`} onClick={() => register("Llamada")}>☎ Llamar</a>}
-          {client.mobile && <a href={`https://wa.me/${phoneDigits(client.mobile)}`} target="_blank" rel="noreferrer" onClick={() => register("WhatsApp")}>WhatsApp</a>}
-          {client.email && <a href={`mailto:${client.email}`} onClick={() => register("Email")}>Email</a>}
-          <Link className={styles.primary} href={`/oportunidades/nuevo?cliente=${client.id}`}>+ Nueva oportunidad</Link>
-          <button onClick={() => register("Nota")}>+ Nota</button>
-          <Link href={`/clientes/${client.id}/editar`}>Editar</Link>
-        </div>
-      </header>
+  const whatHas=activeContracts;
 
-      <section className={styles.kpis}>
-        <Kpi label="Servicios activos" value={productRatio} note="Ratio de productos por cliente" />
-        <Kpi label="Contratos activos" value={activeContracts.length} note={`${contracts.length} contratos totales`} />
-        <Kpi label="Oportunidades" value={openOpportunities.length} note="Presupuestos y ventas abiertas" />
-        <Kpi label="Necesita atención" value={energyTickets.length} note={energyTickets.length ? "Tickets pendientes" : "Sin tickets abiertos"} tone={energyTickets.length ? "danger" : "ok"} />
-      </section>
-      {timeline[0] && (
-        <section className={styles.latestActivity}>
-          <div>
-            <span>ÚLTIMA ACTIVIDAD</span>
-            <strong>{timeline[0].title}</strong>
-            <small>{timeline[0].detail} · {formatDate(timeline[0].date)}</small>
-          </div>
-          <a href="#timeline">Ver timeline →</a>
-        </section>
-      )}
+  async function note(){const v=window.prompt('Escribe la nota:',''); if(v===null||!v.trim()) return; await addTimeline('Nota','Nota añadida',v.trim(),'Interno')}
+  async function call(){const v=window.prompt('Resultado / motivo de la llamada:',''); if(v===null) return; await addTimeline('Llamada','Llamada registrada',v||'Sin observaciones','Teléfono'); if(phone) window.location.href=`tel:${phone}`}
+  async function whatsapp(){await addTimeline('WhatsApp','Contacto por WhatsApp iniciado','Apertura de WhatsApp Web','WhatsApp'); if(client.mobile) window.open(`https://wa.me/${String(client.mobile).replace(/\D/g,'')}`,'_blank','noopener,noreferrer')}
+  async function email(){await addTimeline('Email','Contacto por email iniciado',client.email||'','Email'); if(client.email) window.location.href=`mailto:${client.email}`}
 
-      {energyTickets.length > 0 && (
-        <section className={`${styles.section} ${styles.attention}`}>
-          <div className={styles.sectionHead}><div><span>NECESITA ATENCIÓN</span><h2>Hay gestiones que pueden bloquear operaciones</h2><p>Los tickets siguen perteneciendo a cada contrato.</p></div><Link href="/operaciones">Ver operaciones →</Link></div>
-          <div className={styles.ticketGrid}>{energyTickets.slice(0,3).map((ticket) => <Link href={`/contratos/energia/${ticket.contractId}`} key={ticket.id} className={styles.ticket}><b>🎫 {ticket.title}</b><small>{ticket.status} · Abrir contrato →</small></Link>)}</div>
-        </section>
-      )}
+  return <main className={styles.page}>
+    <div className={styles.crumb}><Link href="/clientes">Clientes</Link><span>/</span><strong>Cliente 360º</strong></div>
 
-      <section className={styles.section}>
-        <div className={styles.sectionHead}><div><span>¿QUÉ TIENE?</span><h2>Servicios del cliente</h2><p>Contratos reales y huecos de venta cruzada en una sola vista.</p></div><Link href={`/oportunidades/nuevo?cliente=${client.id}`}>+ Nueva oportunidad</Link></div>
-        <div className={styles.serviceGrid}>
-          {serviceCatalog.map((service) => {
-            const items = contracts.filter((item) => item.service === service.key);
-            const active = items.filter((item) => item.status === "Activo").length;
-            const products = items.reduce((sum,item) => sum + item.products.reduce((acc,p) => acc + p.quantity,0),0);
-            return <article className={`${styles.serviceCard} ${active ? styles.serviceActive : ""}`} key={service.key}>
-              <div className={styles.serviceTop}><div className={styles.serviceIcon}>{service.icon}</div><span className={active ? styles.activeBadge : styles.inactiveBadge}>{active ? "Activo" : "Disponible"}</span></div>
-              <span className={styles.serviceName}>{service.key}</span>
-              <strong>{items.length} {items.length === 1 ? "contrato" : "contratos"}</strong>
-              <small>{active ? `${products} productos · ${active} activos` : service.note}</small>
-              <div className={styles.serviceFoot}>{active ? <Link href={`#service-${slug(service.key)}`}>Ver detalle →</Link> : <Link href={offerHref(service.key, client.id)}>+ Ofrecer {service.key}</Link>}</div>
-            </article>;
-          })}
-        </div>
-      </section>
-
-      <div className={styles.twoCol}>
-        <section className={styles.section}>
-          <div className={styles.sectionHead}><div><span>OPORTUNIDADES</span><h2>Presupuestos y negocio abierto</h2><p>Todo lo que hemos ofrecido y todavía está vivo.</p></div><Link href={`/oportunidades/nuevo?cliente=${client.id}`}>Nueva →</Link></div>
-          <div className={styles.list}>{openOpportunities.length ? openOpportunities.map((opp) => <Link href="/oportunidades" className={styles.row} key={opp.id}><div className={styles.rowIcon}>🎯</div><div><strong>{opp.service} · {opp.title || opp.product || "Oportunidad"}</strong><small>{opp.reference} · Próxima acción: {opp.nextAction || "Pendiente"}</small></div><span className={`${styles.stage} ${styles[stageTone[opp.stage] || "gray"]}`}>{opp.stage}</span><b>→</b></Link>) : <Empty text="No hay oportunidades abiertas" action="Crear oportunidad" href={`/oportunidades/nuevo?cliente=${client.id}`} />}</div>
-        </section>
-
-        <aside className={styles.advisor}>
-          <span>ONE · VENTA CRUZADA</span><h2>Incrementar ratio de productos</h2>
-          <div className={styles.ratio}><strong>{activeServices.size}</strong><span>de {serviceCatalog.length} servicios</span></div>
-          <p>{activeServices.size === serviceCatalog.length ? "Este cliente ya tiene todos los servicios principales." : "ONE detecta qué servicios todavía no tiene contratados."}</p>
-          <div className={styles.crossSell}>{serviceCatalog.filter((s) => !activeServices.has(s.key)).map((s) => <Link key={s.key} href={`/oportunidades/nuevo?cliente=${client.id}`}><span>{s.icon}</span><div><strong>Ofrecer {s.key}</strong><small>{s.note}</small></div><b>+</b></Link>)}</div>
-        </aside>
+    <header className={styles.hero}>
+      <div className={styles.avatar}>{initials(client.name)}</div>
+      <div className={styles.identity}>
+        <div className={styles.titleLine}><span className={styles.eyebrow}>CLIENTE 360º</span><span className={styles.status}>{client.status}</span></div>
+        <h1>{client.name}</h1>
+        <p>{client.taxId||'DNI/CIF pendiente'} · {client.reference} · {client.type}</p>
+        <div className={styles.ownerLine}><span>Comercial <strong>{client.commercial||'Sin asignar'}</strong></span><span>Alta <strong>{fmt(client.createdAt)}</strong></span><span>Última interacción <strong>{last?fmt(last.created_at):'Sin actividad'}</strong></span></div>
       </div>
+    </header>
 
+    <div className={styles.quickBar}>
+      <button onClick={call} disabled={!phone}>☎ Llamar</button>
+      <button onClick={whatsapp} disabled={!client.mobile}>WhatsApp</button>
+      <button onClick={email} disabled={!client.email}>Email</button>
+      <button onClick={note}>+ Nota</button>
+      <Link href={`/clientes/${client.id}/editar`}>Editar</Link>
+      <Link href={`/oportunidades/nuevo?cliente=${encodeURIComponent(client.id)}`}>+ Nueva oferta</Link>
+      <Link className={styles.contractAction} href={`/contratos/nuevo?cliente=${encodeURIComponent(client.id)}`}>+ Nuevo contrato</Link>
+    </div>
+
+    <section className={styles.usefulInfo}>
+      <Info label="Teléfono" value={phone||'Pendiente'} />
+      <Info label="Email" value={client.email||'Pendiente'} />
+      <Info label="Dirección" value={[client.address,client.postalCode,client.city,client.province].filter(Boolean).join(', ')||'Pendiente'} />
+      <Info label="Comercial" value={client.commercial||'Sin asignar'} />
+      <Info label="Última interacción" value={last?`${last.title||last.event_type} · ${fmt(last.created_at)}`:'Sin actividad'} />
+    </section>
+
+    <section className={styles.section}>
+      <div className={styles.sectionHead}><div><span>¿QUÉ TIENE?</span><h2>Servicios contratados</h2><p>Solo contratos reales de este cliente.</p></div></div>
+      {whatHas.length===0 ? <div className={styles.empty}><strong>Este cliente todavía no tiene servicios contratados.</strong><p>Las propuestas comerciales se muestran en Ofertas.</p></div> : <div className={styles.serviceGrid}>{whatHas.map(c=><article className={`${styles.serviceCard} ${c.status==="Activo"?styles.serviceActive:""}`} key={c.id}><div className={styles.serviceTop}><b className={styles.serviceIcon}>{c.status==="Activo"?"✓":"•"}</b><span>{c.status||"Contrato"}</span></div><strong>{c.service?.name||c.service?.category||c.service_name||'Contrato'}</strong><p>{c.provider||c.service?.provider||'Proveedor'} · {c.external_reference||c.id}</p>{fmtActivation(c)&&<small style={{display:"block",marginTop:6,color:"#7d716a",fontSize:11}}>Activación: <strong>{fmtActivation(c)}</strong></small>}<div className={styles.serviceLinks}><Link href={`/contratos/${c.id}?cliente=${client.id}`}>Ver contrato →</Link></div></article>)}</div>}
+    </section>
+
+    <div className={styles.twoCol}>
       <section className={styles.section}>
-        <div className={styles.sectionHead}><div><span>CONTRATOS</span><h2>Cartera del cliente</h2><p>Entra en cada contrato para productos, documentos, operaciones y tickets.</p></div></div>
-        <div className={styles.contractGroups}>
-          {serviceCatalog.map((service) => {
-            const items = contracts.filter((c) => c.service === service.key);
-            if (!items.length) return null;
-            return <div id={`service-${slug(service.key)}`} className={styles.contractGroup} key={service.key}><div className={styles.groupTitle}><span>{service.icon}</span><strong>{service.key}</strong><small>{items.length} {items.length===1?"contrato":"contratos"}</small></div>{items.map((contract) => <ContractRow contract={contract} key={contract.id} />)}</div>;
-          })}
-          {!contracts.length && <Empty text="Todavía no hay contratos" action="Crear oportunidad" href={`/oportunidades/nuevo?cliente=${client.id}`} />}
-        </div>
+        <div className={styles.sectionHead}><div><span>OFERTAS</span><h2>Propuestas realizadas</h2><p>Presupuestos y ofertas ligadas al cliente.</p></div><Link href={`/oportunidades/nuevo?cliente=${encodeURIComponent(client.id)}`}>Nueva oferta →</Link></div>
+        {offers.length===0?<div className={styles.empty}><strong>Todavía no hay ofertas.</strong><p>Crea una oferta y quedará vinculada al cliente.</p></div>:<div className={styles.list}>{offers.map(o=><div className={styles.record} key={o.id}><span className={styles.recordIcon}>O</span><div className={styles.recordBody}><strong>{o.title||o.service||'Oferta'}</strong><small>{o.stage||o.review_status||'Borrador'} · {fmt(o.updated_at||o.created_at)}</small></div><span className={styles.recordStatus}>{o.stage||'Oferta'}</span><Link href={`/oportunidades/${o.id}`}>Abrir →</Link></div>)}</div>}
       </section>
+      <section className={styles.section}>
+        <div className={styles.sectionHead}><div><span>CONTRATOS</span><h2>Histórico contractual</h2><p>Tramitados, pendientes de activación, activos, anulados o baja.</p></div><Link href={`/contratos/nuevo?cliente=${encodeURIComponent(client.id)}`}>Nuevo contrato →</Link></div>
+        {contracts.length===0?<div className={styles.empty}><strong>Todavía no hay contratos.</strong><p>Los contratos directos y los contratos nacidos de una oferta aparecerán aquí.</p></div>:<div className={styles.list}>{contracts.map(c=><div className={styles.record} key={c.id}><span className={styles.recordIcon}>C</span><div className={styles.recordBody}><strong>{c.service?.name||c.service?.category||'Contrato'}</strong><small>{c.external_reference||c.id} · {c.provider||c.service?.provider||'Proveedor'} · Comercial: {c.commercial_name||'Sin asignar'}{fmtActivation(c)?` · Activación: ${fmtActivation(c)}`:""}</small></div><span className={styles.recordStatus}>{c.status||'Contrato'}</span><Link href={`/contratos/${c.id}?cliente=${client.id}`}>Abrir →</Link></div>)}</div>}
+      </section>
+    </div>
 
-      <div className={styles.twoCol}>
-        <section id="timeline" className={styles.section}>
-          <div className={styles.sectionHead}><div><span>ACTIVIDAD</span><h2>Timeline completo</h2><p>Desde el primer contacto hasta contratos, llamadas y oportunidades.</p></div><button onClick={() => register("Nota")}>+ Registrar gestión</button></div>
-          <div className={styles.timelineList}>{timeline.length ? timeline.slice(0,14).map((event) => <div className={styles.timeline} key={event.id}><i/><time>{formatDate(event.date)}</time><div><span>{event.kind}</span><strong>{event.title}</strong><p>{event.detail}</p></div></div>) : <p className={styles.noActivity}>Sin actividad todavía.</p>}</div>
-        </section>
+    <section id="timeline" className={styles.section}>
+      <div className={styles.sectionHead}><div><span>TIMELINE DEL CLIENTE</span><h2>Todo lo que sabemos de {client.name}</h2><p>Interacciones y movimientos registrados sobre el mismo cliente.</p></div><button onClick={note}>+ Añadir nota</button></div>
+      {timeline.length===0?<div className={styles.emptyTimeline}>Todavía no hay actividad registrada.</div>:<div className={styles.timelineList}>{timeline.map(e=><div className={styles.timeline} key={e.id}><i/><time>{fmt(e.created_at)}</time><div><span>{e.event_type||e.channel||'Actividad'}</span><strong>{e.title||'Actividad'}</strong>{e.detail&&<p>{e.detail}</p>}<small>{e.actor_name||'ONE'}</small></div></div>)}</div>}
+    </section>
 
-        <section className={styles.section}>
-          <div className={styles.sectionHead}><div><span>CONTACTO</span><h2>Información útil</h2><p>Lo necesario para interactuar con el cliente.</p></div><Link href={`/clientes/${client.id}/editar`}>Completar ficha →</Link></div>
-          <div className={styles.contactGrid}><Data label="Teléfono" value={client.mobile || client.phone} /><Data label="Email" value={client.email} /><Data label="Dirección" value={[client.address, client.postalCode, client.city].filter(Boolean).join(", ")} /><Data label="DNI / CIF" value={client.taxId} /><Data label="IBAN" value={maskIban(client.iban)} /><Data label="Notas" value={client.notes} /></div>
-        </section>
+    <section className={styles.section}>
+      <div className={styles.sectionHead}><div><span>INFORMACIÓN DEL CLIENTE</span><h2>Datos completos</h2></div></div>
+      <div className={styles.dataGrid}>
+        <Info label="DNI / CIF" value={client.taxId||'Pendiente'} /><Info label="ID ONE" value={client.reference} /><Info label="Tipo" value={client.type} /><Info label="IBAN" value={maskIban(client.iban||'')} />
+        <Info label="Teléfono" value={phone||'Pendiente'} /><Info label="Email" value={client.email||'Pendiente'} /><Info label="Dirección" value={[client.address,client.postalCode,client.city,client.province].filter(Boolean).join(', ')||'Pendiente'} /><Info label="Notas generales" value={client.notes||'Sin notas'} />
       </div>
-
-      <div className={styles.footerLine}><span>ONE v0.4.0 · Cliente 360º v2</span><span>Tu negocio, siempre contigo.</span><button onClick={remove}>Enviar a papelera</button></div>
-    </main>
-  );
+    </section>
+    <div className={styles.footer}>Cliente central · {viewer?.role||''} · {viewer?.name||''}</div>
+  </main>
 }
 
-function ContractRow({ contract }: { contract: OneContract }) {
-  const href = contract.service === "Energía" ? `/contratos/energia/${contract.id}` : "#";
-  const products = contract.products.reduce((sum,p) => sum + p.quantity,0);
-  return <Link href={href} className={styles.contractRow}><div><strong>{contract.provider} · {contract.mainProduct}</strong><small>{contract.reference}{contract.cups ? ` · ${contract.cups}` : ""}</small></div><span>{products} productos</span><span className={`${styles.contractStatus} ${contract.status === "Activo" ? styles.ok : ""}`}>{contract.status}</span><b>→</b></Link>;
-}
-function Kpi({label,value,note,tone}:{label:string;value:string|number;note:string;tone?:string}) { return <article className={`${styles.kpi} ${tone === "danger" ? styles.kpiDanger : tone === "ok" ? styles.kpiOk : ""}`}><span>{label}</span><strong>{value}</strong><small>{note}</small></article>; }
-function Data({label,value}:{label:string;value:string}) { return <div className={styles.data}><span>{label}</span><strong>{value || "Pendiente"}</strong></div>; }
-function Empty({text,action,href}:{text:string;action:string;href:string}) { return <div className={styles.empty}><strong>{text}</strong><Link href={href}>{action} →</Link></div>; }
+function Info({label,value}:{label:string;value:string}){return <div className={styles.info}><span>{label}</span><strong>{value}</strong></div>}
+function initials(v:string){return v.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]?.toUpperCase()).join('')||'CL'}
+function fmt(v?:string){if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?v:new Intl.DateTimeFormat('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)}
 
-function offerHref(service:string, clientId:string){
-  if(service === "Energía") return `/oportunidades/nuevo/energia?cliente=${clientId}`;
-  if(service === "Seguros") return `/oportunidades/nuevo/seguros?cliente=${clientId}`;
-  if(service === "Alarmas") return `/oportunidades/nuevo/alarmas?cliente=${clientId}`;
-  return `/oportunidades/nuevo?cliente=${clientId}&servicio=${encodeURIComponent(service)}`;
+function fmtActivation(c:any){
+  const value=c?.data?.activation_date||c?.activation_date||c?.start_date||"";
+  return value ? fmt(value) : "";
 }
 
-function initials(name:string){return name.split(" ").filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase();}
-function phoneDigits(v:string){return v.replace(/\D/g,"");}
-function slug(v:string){return v.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();}
-function maskIban(v:string){return v ? `${v.slice(0,4)} •••• •••• ${v.slice(-4)}` : "";}
-function formatShort(v:string){return new Date(v).toLocaleDateString("es-ES");}
-function formatDate(v:string){return new Date(v).toLocaleString("es-ES",{dateStyle:"short",timeStyle:"short"});}
-function formatRelative(v:string){const diff=Date.now()-new Date(v).getTime();const days=Math.floor(diff/86400000);if(days<=0)return "Hoy";if(days===1)return "Ayer";return `Hace ${days} días`;}
+function maskIban(v:string){if(!v)return 'Pendiente';return v.length>8?`${v.slice(0,4)} •••• •••• ${v.slice(-4)}`:v}

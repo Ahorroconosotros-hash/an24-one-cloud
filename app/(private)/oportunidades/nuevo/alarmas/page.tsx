@@ -296,7 +296,7 @@ function AlarmOpportunityContent() {
       user: client?.commercial || "Usuario actual",
     });
 
-    router.push(`/clientes/${clientId}`);
+    router.push(`/oportunidades/${opportunity.id}`);
   }
 
   return (
@@ -311,7 +311,7 @@ function AlarmOpportunityContent() {
         <div>
           <span>OPORTUNIDADES / ALARMAS</span>
           <div className={styles.masterTitleRow}>
-            <h1>Nueva oportunidad</h1>
+            <h1>Nuevo presupuesto</h1>
             <b>•</b>
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
               <option>En negociación</option>

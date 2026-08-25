@@ -1,8 +1,76 @@
+"use client";
+
 import Image from "next/image";
-import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 import styles from "./login.module.css";
 
+function homeForRole(role?: string | null) {
+  if (role === "BackOffice") return "/backoffice";
+  if (role === "Comercial") return "/dashboard";
+  return "/dashboard";
+}
+
 export default function LoginPage() {
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+
+    if (!email.trim() || !password) {
+      setError("Introduce correo y contraseña.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error: signInError } =
+        await supabaseBrowser.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+      if (signInError || !data.session) {
+        throw new Error(signInError?.message || "No se pudo iniciar sesión.");
+      }
+
+      const response = await fetch("/api/current-one-user", {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+      });
+
+      const current = await response.json();
+
+      if (!response.ok || !current.ok) {
+        await supabaseBrowser.auth.signOut();
+        throw new Error(
+          current.error || "Este usuario no tiene acceso activo a ONE."
+        );
+      }
+
+      router.replace(homeForRole(current.user.role));
+      router.refresh();
+    } catch (e: any) {
+      setError(
+        e?.message === "Invalid login credentials"
+          ? "Correo o contraseña incorrectos."
+          : e?.message || "No se pudo iniciar sesión."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <main className={styles.page}>
       <section className={styles.brandPanel}>
@@ -28,8 +96,8 @@ export default function LoginPage() {
             </h1>
 
             <p>
-              Clientes, oportunidades, agenda, documentos y actividad
-              comercial conectados en una única plataforma.
+              Cada usuario entra en su propia operativa: comercial,
+              BackOffice o administración.
             </p>
           </div>
 
@@ -58,73 +126,63 @@ export default function LoginPage() {
 
         <div className={styles.loginCard}>
           <div className={styles.heading}>
-            <span className={styles.welcomeLabel}>BIENVENIDO</span>
-            <h2>Entra en ONE</h2>
-            <p>Accede a tu espacio de trabajo.</p>
+            <span className={styles.eyebrow}>ACCESO ONE</span>
+            <h2>Bienvenido</h2>
+            <p>Accede con el usuario creado en Usuarios y Permisos.</p>
           </div>
 
-          <form className={styles.form}>
-            <label className={styles.field}>
-              <span>Correo electrónico</span>
-
-              <div className={styles.inputWrapper}>
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className={styles.inputIcon}
-                >
-                  <path
-                    d="M4 6.5h16v11H4v-11Zm0 .5 8 6 8-6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-
+          <form onSubmit={submit}>
+            <label>
+              Correo electrónico
+              <div className={styles.inputWrap}>
                 <input
                   type="email"
                   name="email"
-                  placeholder="nombre@empresa.com"
-                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="usuario@empresa.com"
+                  autoComplete="username"
                 />
               </div>
             </label>
 
-            <label className={styles.field}>
-              <div className={styles.passwordHeading}>
-                <span>Contraseña</span>
-                <button type="button">¿La has olvidado?</button>
-              </div>
-
-              <div className={styles.inputWrapper}>
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className={styles.inputIcon}
-                >
-                  <path
-                    d="M7 10V8a5 5 0 0 1 10 0v2M6 10h12v10H6V10Z"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-
+            <label>
+              Contraseña
+              <div className={styles.inputWrap}>
                 <input
                   type="password"
                   name="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Introduce tu contraseña"
                   autoComplete="current-password"
                 />
               </div>
             </label>
 
-            <Link href="/dashboard" className={styles.loginButton}>
-              <span>Entrar en ONE</span>
+            {error && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "#fff2ee",
+                  color: "#a64025",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className={styles.loginButton}
+              disabled={loading}
+              style={{ width: "100%", border: 0 }}
+            >
+              <span>{loading ? "Entrando..." : "Entrar en ONE"}</span>
 
               <svg aria-hidden="true" viewBox="0 0 24 24">
                 <path
@@ -136,33 +194,13 @@ export default function LoginPage() {
                   strokeLinejoin="round"
                 />
               </svg>
-            </Link>
+            </button>
           </form>
 
           <div className={styles.security}>
-            <span className={styles.securityIcon}>
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path
-                  d="M12 3 5 6v5c0 4.8 2.9 8.2 7 10 4.1-1.8 7-5.2 7-10V6l-7-3Z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="m9 12 2 2 4-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-
             <div>
-              <strong>Acceso seguro</strong>
-              <p>Tus datos están protegidos.</p>
+              <strong>Acceso por perfil</strong>
+              <p>ONE adapta menú y operativa al rol del usuario.</p>
             </div>
           </div>
         </div>

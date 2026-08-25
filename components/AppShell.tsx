@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import styles from "./AppShell.module.css";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 type AppShellProps = {
   children: ReactNode;
@@ -26,27 +27,108 @@ type IconName =
   | "search"
   | "bell";
 
+type OneRole = "Administrador" | "BackOffice" | "Comercial";
+
+type CurrentOneUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: OneRole;
+  profile_type?: string | null;
+  department?: string | null;
+};
+
 type NavItem = {
   href: string;
   label: string;
   icon: IconName;
+  roles: OneRole[];
 };
 
+const ALL: OneRole[] = ["Administrador", "BackOffice", "Comercial"];
+const ADMIN: OneRole[] = ["Administrador"];
+const ADMIN_BO: OneRole[] = ["Administrador", "BackOffice"];
+const ADMIN_COMMERCIAL: OneRole[] = ["Administrador", "Comercial"];
+
 const primaryNavigation: NavItem[] = [
-  { href: "/dashboard", label: "Mi Día", icon: "home" },
-  { href: "/clientes", label: "Clientes", icon: "clients" },
-  { href: "/operaciones", label: "Operaciones", icon: "operations" },
-  { href: "/oportunidades", label: "Oportunidades", icon: "target" },
-  { href: "/agenda", label: "Agenda", icon: "calendar" },
+  { href: "/dashboard", label: "Mi Día", icon: "home", roles: ALL },
+  { href: "/clientes", label: "Clientes", icon: "clients", roles: ALL },
+  {
+    href: "/comercial/oportunidades",
+    label: "Mis ofertas",
+    icon: "target",
+    roles: ADMIN_COMMERCIAL,
+  },
+  {
+    href: "/backoffice",
+    label: "Tramitaciones",
+    icon: "operations",
+    roles: ADMIN_BO,
+  },
+  {
+    href: "/contratos",
+    label: "Contratos",
+    icon: "operations",
+    roles: ADMIN_BO,
+  },
+  {
+    href: "/comercial/contratos",
+    label: "Mis contratos",
+    icon: "operations",
+    roles: ["Comercial"],
+  },
+  {
+    href: "/oportunidades",
+    label: "Ofertas",
+    icon: "target",
+    roles: ADMIN_BO,
+  },
+  { href: "/agenda", label: "Agenda", icon: "calendar", roles: ALL },
 ];
 
 const managementNavigation: NavItem[] = [
-  { href: "/productos", label: "Productos y Proveedores", icon: "products" },
-  { href: "/documentos", label: "Biblioteca", icon: "documents" },
-  { href: "/configuracion", label: "Campañas y Novedades", icon: "bell" },
-  { href: "/comerciales", label: "Usuarios y Permisos", icon: "team" },
-  { href: "/informes", label: "Informes", icon: "reports" },
-  { href: "/configuracion", label: "Automatizaciones", icon: "settings" },
+  {
+    href: "/productos",
+    label: "Productos y Proveedores",
+    icon: "products",
+    roles: ADMIN,
+  },
+  {
+    href: "/documentos",
+    label: "Biblioteca",
+    icon: "documents",
+    roles: ALL,
+  },
+  {
+    href: "/configuracion",
+    label: "Campañas y Novedades",
+    icon: "bell",
+    roles: ADMIN,
+  },
+  {
+    href: "/usuarios",
+    label: "Usuarios y Permisos",
+    icon: "team",
+    roles: ADMIN,
+  },
+  {
+    href: "/configuracion/plantillas-contractuales",
+    label: "Plantillas contractuales",
+    icon: "documents",
+    roles: ADMIN,
+  },
+  {
+    href: "/informes",
+    label: "Informes",
+    icon: "reports",
+    roles: ADMIN_BO,
+  },
+  {
+    href: "/configuracion",
+    label: "Automatizaciones",
+    icon: "settings",
+    roles: ADMIN,
+  },
 ];
 
 function Icon({ name }: { name: IconName }) {
@@ -195,18 +277,20 @@ function NavigationGroup({
   items,
   pathname,
   onNavigate,
+  role,
 }: {
   title?: string;
   items: NavItem[];
   pathname: string;
   onNavigate: () => void;
+  role: OneRole;
 }) {
   return (
     <div className={styles.navigationGroup}>
       {title && <p className={styles.navigationTitle}>{title}</p>}
 
       <nav className={styles.navigation}>
-        {items.map((item) => {
+        {items.filter((item) => item.roles.includes(role)).map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/dashboard" &&
@@ -238,7 +322,90 @@ function NavigationGroup({
 
 export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<CurrentOneUser | null>(null);
+  const [accessLoading, setAccessLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabaseBrowser.auth.getSession();
+
+        if (!session) {
+          router.replace("/login");
+          return;
+        }
+
+        const response = await fetch("/api/current-one-user", {
+          cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          await supabaseBrowser.auth.signOut();
+          router.replace("/login");
+          return;
+        }
+
+        if (!cancelled) {
+          setCurrentUser(data.user);
+        }
+      } catch {
+        if (!cancelled) {
+          router.replace("/login");
+        }
+      } finally {
+        if (!cancelled) {
+          setAccessLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const role = currentUser.role;
+
+    const allowed = [...primaryNavigation, ...managementNavigation]
+      .filter((item) => item.roles.includes(role))
+      .some(
+        (item) =>
+          pathname === item.href ||
+          (item.href !== "/dashboard" &&
+            pathname.startsWith(`${item.href}/`))
+      );
+
+    // Rutas de creación/ficha permitidas por contexto.
+    const contextualAllowed =
+      pathname.startsWith("/clientes/") ||
+      pathname.startsWith("/contratos/") ||
+      (role !== "Comercial" && pathname.startsWith("/backoffice/")) ||
+      (role === "Administrador" && pathname.startsWith("/usuarios/")) ||
+      (role === "Administrador" && pathname.startsWith("/configuracion/")) ||
+      ((role === "Administrador" || role === "Comercial") &&
+        (pathname === "/oportunidades/nuevo" ||
+          pathname.startsWith("/oportunidades/nuevo/") ||
+          /^\/oportunidades\/[^/]+$/.test(pathname)));
+
+    if (!allowed && !contextualAllowed) {
+      router.replace(role === "BackOffice" ? "/backoffice" : "/dashboard");
+    }
+  }, [currentUser, pathname, router]);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -251,6 +418,22 @@ export default function AppShell({ children }: AppShellProps) {
       document.body.style.overflow = "";
     };
   }, [sidebarOpen]);
+
+  if (accessLoading || !currentUser) {
+    return (
+      <div style={{ padding: 32, fontFamily: "Arial, sans-serif" }}>
+        Cargando acceso ONE...
+      </div>
+    );
+  }
+
+  const role = currentUser.role;
+
+  async function logout() {
+    await supabaseBrowser.auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  }
 
   return (
     <div className={styles.shell}>
@@ -303,6 +486,7 @@ export default function AppShell({ children }: AppShellProps) {
             items={primaryNavigation}
             pathname={pathname}
             onNavigate={() => setSidebarOpen(false)}
+            role={role}
           />
 
           <NavigationGroup
@@ -310,26 +494,30 @@ export default function AppShell({ children }: AppShellProps) {
             items={managementNavigation}
             pathname={pathname}
             onNavigate={() => setSidebarOpen(false)}
+            role={role}
           />
 
         </div>
 
         <div className={styles.sidebarFooter}>
           <div className={styles.account}>
-            <div className={styles.avatar}>O</div>
-
-            <div className={styles.accountText}>
-              <strong>Mi cuenta</strong>
-              <span>ONE Cloud</span>
+            <div className={styles.avatar}>
+              {(currentUser.name || currentUser.email || "O").charAt(0).toUpperCase()}
             </div>
 
-            <Link
-              href="/login"
+            <div className={styles.accountText}>
+              <strong>{currentUser.name || "Mi cuenta"}</strong>
+              <span>{role}</span>
+            </div>
+
+            <button
+              type="button"
               className={styles.logoutButton}
               aria-label="Cerrar sesión"
+              onClick={logout}
             >
               <Icon name="logout" />
-            </Link>
+            </button>
           </div>
 
           <div className={styles.version}>
@@ -379,11 +567,13 @@ export default function AppShell({ children }: AppShellProps) {
             </button>
 
             <div className={styles.topbarAccount}>
-              <span className={styles.topbarAvatar}>O</span>
+              <span className={styles.topbarAvatar}>
+                {(currentUser.name || currentUser.email || "O").charAt(0).toUpperCase()}
+              </span>
 
               <div>
-                <strong>Mi cuenta</strong>
-                <small>Administrador</small>
+                <strong>{currentUser.name || "Mi cuenta"}</strong>
+                <small>{role}</small>
               </div>
             </div>
           </div>

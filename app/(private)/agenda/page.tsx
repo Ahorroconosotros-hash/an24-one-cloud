@@ -1,141 +1,50 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { PageHead, Badge } from "@/components/UI";
-import {
-  completeEnergyLifecycleAlert,
-  EnergyLifecycleAlert,
-  loadEnergyLifecycleAlerts,
-} from "@/lib/energy-reminders";
+import { getCurrentOneUser, CurrentOneUser } from "@/lib/current-one-user-client";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
-const days = ["Lunes 20", "Martes 21", "Miércoles 22", "Jueves 23", "Viernes 24"];
+type AgendaEvent={id:string;title:string;event_type:string;description?:string|null;starts_at:string;ends_at?:string|null;status:string;priority:string;assigned_user_id:string;created_by_user_id:string;assigned_user?:{id:string;name:string;role:string}|null;created_by_user?:{id:string;name:string;role:string}|null};
+type OneUser={id:string;name:string;role:string;active?:boolean};
+type View="day"|"week"|"month";
+const types=["Llamada","Visita","Tarea","Seguimiento","Cita","Renovación","Incidencia"];
+const icons:Record<string,string>={Llamada:"☎",Visita:"👤",Tarea:"✓",Seguimiento:"↻",Cita:"▣",Renovación:"⚡",Incidencia:"!"};
+const pad=(n:number)=>String(n).padStart(2,"0");
+const isoLocal=(d:Date)=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const startDay=(d:Date)=>{const n=new Date(d);n.setHours(0,0,0,0);return n};
+const mondayOf=(d:Date)=>{const n=startDay(d);n.setDate(n.getDate()-((n.getDay()+6)%7));return n};
+const sameDay=(a:Date,b:Date)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
 
-export default function Agenda() {
-  const [alerts, setAlerts] = useState<EnergyLifecycleAlert[]>([]);
-
-  useEffect(() => {
-    setAlerts(loadEnergyLifecycleAlerts().filter((item) => !item.completed));
-  }, []);
-
-  const orderedAlerts = useMemo(
-    () => [...alerts].sort((a, b) => a.date.localeCompare(b.date)),
-    [alerts]
-  );
-
-  function completeAlert(id: string) {
-    completeEnergyLifecycleAlert(id);
-    setAlerts((current) => current.filter((item) => item.id !== id));
-  }
-
-  return (
-    <>
-      <PageHead
-        title="Agenda y tareas"
-        subtitle="Organiza llamadas, visitas, renovaciones y seguimientos."
-        action="Nueva tarea"
-      />
-
-      {orderedAlerts.length > 0 && (
-        <section
-          style={{
-            marginBottom: 18,
-            padding: 16,
-            border: "1px solid #eadfd7",
-            borderRadius: 14,
-            background: "#fff",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-            <div>
-              <span style={{ color: "#ef4f2f", fontSize: 11, fontWeight: 900 }}>ONE · ENERGÍA</span>
-              <h2 style={{ margin: "3px 0 0", fontSize: 20 }}>Avisos comerciales automáticos</h2>
-            </div>
-            <Badge tone="orange">{orderedAlerts.length} pendientes</Badge>
-          </div>
-
-          <div style={{ display: "grid", gap: 8 }}>
-            {orderedAlerts.map((alert) => (
-              <article
-                key={alert.id}
-                style={{
-                  padding: 12,
-                  display: "grid",
-                  gridTemplateColumns: "110px 1fr auto auto",
-                  gap: 12,
-                  alignItems: "center",
-                  border: "1px solid #eee6e0",
-                  borderRadius: 10,
-                  background: alert.priority === "Alta" ? "#fff5f1" : "#fff",
-                }}
-              >
-                <time style={{ fontWeight: 900 }}>{alert.date}</time>
-                <div style={{ display: "grid", gap: 3 }}>
-                  <strong>{alert.title}</strong>
-                  <span style={{ color: "#777", fontSize: 13 }}>{alert.description}</span>
-                  <small style={{ color: "#999" }}>
-                    CUPS {alert.cups} · Comercial: {alert.commercial}
-                  </small>
-                </div>
-                <Link href={`/clientes/${alert.clientId}`} style={{ color: "#ef4f2f", fontWeight: 800 }}>
-                  Abrir cliente
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => completeAlert(alert.id)}
-                  style={{
-                    minHeight: 34,
-                    padding: "0 10px",
-                    border: "1px solid #ddd",
-                    borderRadius: 8,
-                    background: "#fff",
-                    cursor: "pointer",
-                  }}
-                >
-                  Hecho
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <div className="toolbar">
-        <button>‹ Semana anterior</button>
-        <b>20 – 24 julio 2026</b>
-        <button>Semana siguiente ›</button>
-      </div>
-
-      <div className="calendar">
-        {days.map((day, index) => (
-          <section key={day}>
-            <header>
-              <b>{day}</b>
-              <span>{index === 0 ? "4 tareas" : "2 tareas"}</span>
-            </header>
-
-            {(index === 0
-              ? [
-                  ["09:30", "Renovación energía", "Clínica Dental Sur", "orange"],
-                  ["11:00", "Demo TPV", "Restaurante Albores", "blue"],
-                  ["13:15", "Seguimiento alarma", "Estanco La Rotonda", "green"],
-                  ["17:00", "Reunión equipo", "Oficina AN24", "purple"],
-                ]
-              : [
-                  ["10:00", "Llamada comercial", "Cliente potencial", "blue"],
-                  ["16:30", "Seguimiento propuesta", "Hotel Jerez Centro", "orange"],
-                ]
-            ).map((item) => (
-              <article key={item[0]}>
-                <time>{item[0]}</time>
-                <b>{item[1]}</b>
-                <span>{item[2]}</span>
-                <Badge tone={item[3]}>{index === 0 ? "Pendiente" : "Programada"}</Badge>
-              </article>
-            ))}
-          </section>
-        ))}
-      </div>
-    </>
-  );
+export default function AgendaPage(){
+ const [me,setMe]=useState<CurrentOneUser|null>(null),[events,setEvents]=useState<AgendaEvent[]>([]),[users,setUsers]=useState<OneUser[]>([]);
+ const [view,setView]=useState<View>("week"),[cursor,setCursor]=useState(startDay(new Date())),[open,setOpen]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState("");
+ const [form,setForm]=useState({title:"",event_type:"Tarea",starts_at:isoLocal(new Date()),priority:"Normal",description:"",assigned_user_id:""});
+ async function token(){const {data}=await supabaseBrowser.auth.getSession();return data.session?.access_token||""}
+ async function load(){setLoading(true);setError("");try{const current=await getCurrentOneUser();setMe(current);const t=await token();const r=await fetch("/api/agenda-events",{headers:{Authorization:`Bearer ${t}`},cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo cargar la agenda.");setEvents(j.events||[]);if(current.role!=="Comercial"){const ur=await fetch("/api/one-users",{cache:"no-store"});const uj=await ur.json();setUsers((uj.users||[]).filter((u:OneUser)=>u.active!==false))}setForm(f=>({...f,assigned_user_id:current.id}))}catch(e:any){setError(e.message||"Error de agenda.")}finally{setLoading(false)}}
+ useEffect(()=>{load()},[]);
+ const visibleDays=useMemo(()=>{if(view==="day")return [startDay(cursor)];if(view==="week"){const m=mondayOf(cursor);return Array.from({length:7},(_,i)=>{const d=new Date(m);d.setDate(d.getDate()+i);return d})}const first=new Date(cursor.getFullYear(),cursor.getMonth(),1);const grid=mondayOf(first);return Array.from({length:42},(_,i)=>{const d=new Date(grid);d.setDate(d.getDate()+i);return d})},[view,cursor]);
+ const label=useMemo(()=>view==="day"?cursor.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):view==="week"?`${visibleDays[0].toLocaleDateString("es-ES",{day:"numeric",month:"short"})} – ${visibleDays[6].toLocaleDateString("es-ES",{day:"numeric",month:"short",year:"numeric"})}`:cursor.toLocaleDateString("es-ES",{month:"long",year:"numeric"}),[view,cursor,visibleDays]);
+ const pending=events.filter(e=>e.status!=="Completada").length, today=events.filter(e=>e.status!=="Completada"&&sameDay(new Date(e.starts_at),new Date())).length;
+ const assignedByMe=events.filter(e=>e.created_by_user_id===me?.id&&e.assigned_user_id!==me?.id).length;
+ function move(dir:number){setCursor(d=>{const n=new Date(d);if(view==="day")n.setDate(n.getDate()+dir);else if(view==="week")n.setDate(n.getDate()+7*dir);else n.setMonth(n.getMonth()+dir);return n})}
+ async function createEvent(e:React.FormEvent){e.preventDefault();try{const t=await token();const r=await fetch("/api/agenda-events",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${t}`},body:JSON.stringify({...form,starts_at:new Date(form.starts_at).toISOString()})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo crear.");setOpen(false);setForm(f=>({...f,title:"",description:""}));await load()}catch(e:any){setError(e.message||"No se pudo crear la tarea.")}}
+ async function complete(id:string){const t=await token();await fetch("/api/agenda-events",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${t}`},body:JSON.stringify({id,status:"Completada"})});await load()}
+ return <>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",gap:16}}><PageHead title="Agenda" subtitle={me?.role==="Comercial"?"Tu agenda personal de llamadas, visitas, seguimientos y tareas.":me?.role==="BackOffice"?"Tu agenda y seguimiento de tareas que has asignado.":"Agenda global del equipo."}/><button onClick={()=>setOpen(true)} style={primary}>+ Nueva tarea</button></div>
+  {error&&<div style={{padding:12,border:"1px solid #f2c8be",background:"#fff5f1",borderRadius:10,marginBottom:14}}>{error}</div>}
+  <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:18}}><Stat label="Pendientes" value={loading?"…":String(pending)}/><Stat label="Hoy" value={loading?"…":String(today)}/><Stat label={me?.role==="BackOffice"?"Asignadas por mí":me?.role==="Administrador"?"Agenda global":"Desde BackOffice"} value={loading?"…":String(me?.role==="BackOffice"?assignedByMe:events.length)}/></div>
+  <div style={{...card,padding:12,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:12}}>
+   <div style={{display:"flex",gap:6}}>{(["day","week","month"] as View[]).map(v=><button key={v} onClick={()=>setView(v)} style={view===v?activeTab:nav}>{v==="day"?"Hoy":v==="week"?"Semana":"Mes"}</button>)}</div>
+   <div style={{display:"flex",alignItems:"center",gap:10}}><button style={nav} onClick={()=>move(-1)}>‹</button><button style={nav} onClick={()=>setCursor(startDay(new Date()))}>Hoy</button><b style={{minWidth:210,textAlign:"center",textTransform:"capitalize"}}>{label}</b><button style={nav} onClick={()=>move(1)}>›</button></div>
+  </div>
+  {me?.role==="BackOffice"&&<div style={{padding:"10px 12px",background:"#fff8f4",border:"1px solid #f4d5c9",borderRadius:10,marginBottom:12,fontSize:13}}><b>Privacidad de agenda:</b> ves tu propia agenda y las tareas que tú has asignado. No ves la agenda personal completa de los comerciales.</div>}
+  <div style={{display:"grid",gridTemplateColumns:view==="day"?"1fr":view==="week"?"repeat(7,minmax(150px,1fr))":"repeat(7,minmax(120px,1fr))",gap:8,overflowX:"auto",paddingBottom:8}}>
+   {visibleDays.map(day=>{const list=events.filter(e=>sameDay(new Date(e.starts_at),day));const outside=view==="month"&&day.getMonth()!==cursor.getMonth();return <section key={day.toISOString()} style={{...card,minHeight:view==="day"?500:view==="month"?150:330,overflow:"hidden",opacity:outside?.55:1}}><header style={{padding:12,borderBottom:"1px solid #eee",background:sameDay(day,new Date())?"#fff4ef":"#fafafa"}}><b style={{display:"block",textTransform:"capitalize"}}>{day.toLocaleDateString("es-ES",view==="month"?{weekday:"short",day:"numeric"}:{weekday:"short",day:"numeric",month:"short"})}</b><span style={{fontSize:12,color:"#888"}}>{list.length} {list.length===1?"tarea":"tareas"}</span></header><div style={{padding:8,display:"grid",gap:8}}>{list.map(ev=><EventCard key={ev.id} ev={ev} me={me} complete={complete}/>)}{!list.length&&<span style={{fontSize:12,color:"#aaa",padding:4}}>Sin tareas</span>}</div></section>})}
+  </div>
+  {open&&<div style={overlay} onMouseDown={()=>setOpen(false)}><form onSubmit={createEvent} onMouseDown={e=>e.stopPropagation()} style={modal}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><small style={{color:"#ef4f2f",fontWeight:900}}>ONE · AGENDA</small><h2 style={{margin:"3px 0 0"}}>Nueva tarea</h2></div><button type="button" onClick={()=>setOpen(false)} style={close}>×</button></div><label style={field}>Título<input required value={form.title} onChange={e=>setForm({...form,title:e.target.value})} style={input}/></label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><label style={field}>Tipo<select value={form.event_type} onChange={e=>setForm({...form,event_type:e.target.value})} style={input}>{types.map(x=><option key={x}>{x}</option>)}</select></label><label style={field}>Prioridad<select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})} style={input}><option>Normal</option><option>Alta</option><option>Urgente</option></select></label></div><label style={field}>Fecha y hora<input required type="datetime-local" value={form.starts_at} onChange={e=>setForm({...form,starts_at:e.target.value})} style={input}/></label>{me?.role!=="Comercial"&&<label style={field}>Asignar a<select value={form.assigned_user_id} onChange={e=>setForm({...form,assigned_user_id:e.target.value})} style={input}>{users.map(u=><option key={u.id} value={u.id}>{u.name} · {u.role}</option>)}</select></label>}<label style={field}>Notas<textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} style={{...input,minHeight:90}}/></label><div style={{display:"flex",justifyContent:"flex-end",gap:8}}><button type="button" onClick={()=>setOpen(false)} style={nav}>Cancelar</button><button type="submit" style={primary}>Crear tarea</button></div></form></div>}
+ </>
 }
+function EventCard({ev,me,complete}:{ev:AgendaEvent;me:CurrentOneUser|null;complete:(id:string)=>void}){const assignedOther=ev.assigned_user_id!==me?.id;return <article style={{padding:10,border:"1px solid #eee",borderLeft:"4px solid #ef4f2f",borderRadius:9,background:ev.status==="Completada"?"#f7f7f7":"#fff"}}><div style={{display:"flex",justifyContent:"space-between",gap:6}}><b style={{fontSize:13}}>{icons[ev.event_type]||"•"} {ev.title}</b><time style={{fontSize:12,fontWeight:800}}>{new Date(ev.starts_at).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}</time></div><div style={{fontSize:12,color:"#777",marginTop:4}}>{ev.event_type} · {ev.priority}</div>{me?.role!=="Comercial"&&<div style={{fontSize:12,marginTop:5,color:assignedOther?"#b53b22":"#555"}}>Comercial / asignado a: <b>{ev.assigned_user?.name||"—"}</b> <span style={{color:"#888"}}>· {ev.assigned_user?.role||""}</span></div>}{me?.role==="BackOffice"&&assignedOther&&<div style={{fontSize:11,color:"#777",marginTop:2}}>Creada por ti para este usuario</div>}{me?.role==="Comercial"&&ev.created_by_user_id!==ev.assigned_user_id&&<div style={{fontSize:12,color:"#ef4f2f",fontWeight:800,marginTop:4}}>De {ev.created_by_user?.name||"BackOffice"}</div>}{ev.description&&<p style={{fontSize:12,color:"#666",margin:"6px 0"}}>{ev.description}</p>}{ev.status!=="Completada"?<button style={done} onClick={()=>complete(ev.id)}>Marcar hecha</button>:<Badge tone="green">Completada</Badge>}</article>}
+function Stat({label,value}:{label:string;value:string}){return <div style={{...card,padding:16}}><span style={{fontSize:12,color:"#888",fontWeight:800,textTransform:"uppercase"}}>{label}</span><strong style={{display:"block",fontSize:28,marginTop:4}}>{value}</strong></div>}
+const card:React.CSSProperties={background:"#fff",border:"1px solid #e9e5e2",borderRadius:12};const primary:React.CSSProperties={border:0,borderRadius:9,background:"#ef4f2f",color:"#fff",fontWeight:900,padding:"11px 16px",cursor:"pointer"};const nav:React.CSSProperties={border:"1px solid #ddd",borderRadius:8,background:"#fff",padding:"9px 12px",cursor:"pointer",fontWeight:700};const activeTab:React.CSSProperties={...nav,background:"#181818",color:"#fff",borderColor:"#181818"};const done:React.CSSProperties={border:"1px solid #ddd",borderRadius:7,background:"#fff",padding:"6px 8px",cursor:"pointer",fontSize:11,fontWeight:800};const overlay:React.CSSProperties={position:"fixed",inset:0,background:"rgba(20,20,20,.42)",display:"grid",placeItems:"center",zIndex:1000,padding:20};const modal:React.CSSProperties={width:"min(560px,100%)",background:"#fff",borderRadius:16,padding:22,boxShadow:"0 25px 70px rgba(0,0,0,.25)",display:"grid",gap:14};const close:React.CSSProperties={border:0,background:"transparent",fontSize:28,cursor:"pointer",color:"#777"};const field:React.CSSProperties={display:"grid",gap:6,fontSize:12,fontWeight:800,color:"#555"};const input:React.CSSProperties={width:"100%",boxSizing:"border-box",border:"1px solid #ddd",borderRadius:8,padding:"10px 11px",font:"inherit",background:"#fff"};

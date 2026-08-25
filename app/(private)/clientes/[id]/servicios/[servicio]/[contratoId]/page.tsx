@@ -74,7 +74,7 @@ export default function ContratoPage() {
           <section className={styles.panel}>
             <div className={styles.panelHead}><div><span>ONE</span><h2>Todo conectado</h2></div></div>
             <div className={styles.links}>
-              <Link href="/operaciones">Operaciones <b>→</b></Link>
+              <Link href="/contratos">Operaciones <b>→</b></Link>
               <Link href="/documentos">Documentos <b>→</b></Link>
               <Link href="/agenda">Seguimientos <b>→</b></Link>
             </div>

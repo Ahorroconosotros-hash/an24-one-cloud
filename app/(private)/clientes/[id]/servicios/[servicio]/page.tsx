@@ -34,7 +34,7 @@ export default function ServicioClientePage() {
           <h1>{client.name}</h1>
           <p>{contracts.length} {presentation.label} · {contracts.reduce((sum, item) => sum + item.products.reduce((acc, product) => acc + product.quantity, 0), 0)} productos</p>
         </div>
-        <Link href={`/oportunidades/nuevo?cliente=${client.id}&servicio=${encodeURIComponent(service)}`}>+ Nuevo contrato</Link>
+        <Link href={`/contratos/nuevo?cliente=${encodeURIComponent(client.id)}&servicio=${encodeURIComponent(service)}`}>+ Nuevo contrato</Link>
       </section>
 
       <section className={styles.list}>

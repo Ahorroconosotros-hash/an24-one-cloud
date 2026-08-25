@@ -5,38 +5,57 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ClientRecord,
   duplicateClient,
-  loadClients,
+  saveClients,
   permanentlyDeleteClient,
   restoreClient,
   trashClient,
 } from "@/lib/clientes";
 import styles from "./Clientes.module.css";
+import { getCurrentOneUser, CurrentOneUser } from "@/lib/current-one-user-client";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
-type View = "Activos" | "Empresas" | "Particulares" | "Oportunidades" | "Papelera";
+type View = "Activos" | "Empresas" | "Particulares" | "Ofertas" | "Papelera";
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>("Activos");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentOneUser | null>(null);
+  const [accessError, setAccessError] = useState("");
 
-  function reload() {
-    setClients(loadClients());
+  async function reload() {
+    const { data: { session } } = await supabaseBrowser.auth.getSession();
+    if (!session?.access_token) throw new Error("Sesión no encontrada.");
+    const response = await fetch("/api/one-clients", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok || !data?.ok) throw new Error(data?.error || "No se pudo cargar la cartera central.");
+    const central = Array.isArray(data.clients) ? data.clients : [];
+    saveClients(central); // cache de compatibilidad; Supabase es la fuente maestra
+    setClients(central);
   }
 
   useEffect(() => {
-    reload();
+    let active = true;
+    getCurrentOneUser()
+      .then(async (user) => { if (active) { setCurrentUser(user); await reload(); } })
+      .catch((error) => { if (active) setAccessError(error instanceof Error ? error.message : "No se pudo comprobar el acceso."); });
+    return () => { active = false; };
   }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return clients.filter((client) => {
+      if (!currentUser) return false;
       const inTrash = Boolean(client.deletedAt);
       if (view === "Papelera" && !inTrash) return false;
       if (view !== "Papelera" && inTrash) return false;
       if (view === "Empresas" && client.type !== "Empresa") return false;
       if (view === "Particulares" && client.type === "Empresa") return false;
-      if (view === "Oportunidades" && client.status !== "Oportunidad") return false;
+      if (view === "Ofertas" && client.status !== "Oportunidad") return false;
       if (!q) return true;
       return [
         client.name,
@@ -49,9 +68,10 @@ export default function ClientesPage() {
         client.commercial,
       ].some((value) => value.toLowerCase().includes(q));
     });
-  }, [clients, query, view]);
+  }, [clients, query, view, currentUser]);
 
-  const activeClients = clients.filter((client) => !client.deletedAt);
+  const visibleClients = currentUser ? clients : [];
+  const activeClients = visibleClients.filter((client) => !client.deletedAt);
   const companies = activeClients.filter((client) => client.type === "Empresa");
   const opportunities = activeClients.filter((client) => client.status === "Oportunidad");
   const complete = activeClients.filter((client) => {
@@ -86,6 +106,9 @@ export default function ClientesPage() {
     if (copy) window.location.href = `/clientes/${copy.id}/editar`;
   }
 
+  if (accessError) return <div className={styles.page}><div className={styles.empty}><strong>Acceso no disponible</strong><span>{accessError}</span></div></div>;
+  if (!currentUser) return <div className={styles.page}><div className={styles.empty}><strong>Comprobando permisos…</strong></div></div>;
+
   return (
     <div className={styles.page}>
       <section className={styles.heading}>
@@ -107,7 +130,7 @@ export default function ClientesPage() {
       <section className={styles.statsGrid}>
         <Stat label="Clientes activos" value={activeClients.length} note="Sin incluir papelera" />
         <Stat label="Empresas" value={companies.length} note="Con representantes asociados" />
-        <Stat label="Oportunidades" value={opportunities.length} note="Todavía no completadas" />
+        <Stat label="Ofertas" value={opportunities.length} note="Todavía no completadas" />
         <Stat
           label="Fichas completas"
           value={`${complete.length}/${activeClients.length}`}
@@ -131,7 +154,7 @@ export default function ClientesPage() {
           </label>
 
           <div className={styles.filters}>
-            {(["Activos", "Empresas", "Particulares", "Oportunidades", "Papelera"] as View[]).map(
+            {(["Activos", "Empresas", "Particulares", "Ofertas", "Papelera"] as View[]).map(
               (item) => (
                 <button
                   key={item}
@@ -208,10 +231,6 @@ export default function ClientesPage() {
                             <>
                               <Link href={`/clientes/${client.id}`}>Abrir ficha</Link>
                               <Link href={`/clientes/${client.id}/editar`}>Editar</Link>
-                              <button onClick={() => duplicate(client.id)}>Duplicar</button>
-                              <button className={styles.danger} onClick={() => moveToTrash(client.id)}>
-                                Enviar a papelera
-                              </button>
                             </>
                           ) : (
                             <>

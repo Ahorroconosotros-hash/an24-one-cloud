@@ -207,8 +207,8 @@ function NuevoNegocioContent() {
       notes,
       details,
     };
-    createOpportunity(draft);
-    router.push("/oportunidades");
+    const created=createOpportunity(draft);
+    router.push(`/oportunidades/${created.id}`);
   }
 
   return (
@@ -217,7 +217,7 @@ function NuevoNegocioContent() {
         <div>
           <Link href="/oportunidades">← Oportunidades</Link>
           <span>ONE · NUEVO NEGOCIO</span>
-          <h1>{presetService ? `Nueva oportunidad · ${presetService}` : "Construir oportunidad"}</h1>
+          <h1>{presetService ? `Nuevo presupuesto · ${presetService}` : "Construir oportunidad"}</h1>
           <p>{presetService ? `Trabajando directamente una oportunidad de ${presetService}.` : "Selecciona al cliente y ONE mantendrá visible qué tiene y qué puedes venderle."}</p>
         </div>
         <div className={styles.steps}><b className={clientId ? styles.done : styles.active}>1 Cliente</b><b className={service ? styles.done : clientId ? styles.active : ""}>2 Servicio</b><b className={product ? styles.done : service ? styles.active : ""}>3 Propuesta</b></div>

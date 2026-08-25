@@ -1,3 +1,5 @@
-import {PageHead,Badge} from "@/components/UI";
-const users=[["SR","Sara Rodríguez","Empresas","18.640 €","92%","green"],["JM","Jesús Martínez","Dirección comercial","14.850 €","84%","blue"],["AC","Ana Campos","Alarmas y TPV","8.420 €","71%","orange"],["DR","David Romero","Telefonía","6.770 €","64%","purple"]];
-export default function Comerciales(){return <><PageHead title="Equipo comercial" subtitle="Rendimiento, objetivos y cartera asignada." action="Nuevo usuario"/><div className="teamGrid">{users.map(x=><article className="team" key={x[0]}><div className="teamAvatar">{x[0]}</div><h2>{x[1]}</h2><p>{x[2]}</p><Badge tone={x[5]}>Activo</Badge><div className="teamStats"><div><small>VENTAS JULIO</small><b>{x[3]}</b></div><div><small>OBJETIVO</small><b>{x[4]}</b></div></div><div className="progress"><i style={{width:x[4]}}/></div><button>Ver rendimiento</button></article>)}</div></>}
+import { redirect } from "next/navigation";
+
+export default function ComercialesRedirect() {
+  redirect("/usuarios");
+}

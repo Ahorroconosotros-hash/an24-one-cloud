@@ -106,7 +106,7 @@ function InsuranceOpportunityContent(){
         detail:`${selectedProvider?.name||"Compañía pendiente"} · ${availableProducts.find(item=>item.id===product)?.name||"Producto pendiente"} · ${premium?premium+" €":"Prima pendiente"}`,
         user:client?.commercial||"Usuario actual"
       });
-      router.push(`/clientes/${clientId}`);
+      router.push(`/oportunidades/${opportunity.id}`);
     }catch{alert("No se ha podido guardar la oportunidad.");}
   }
 
@@ -114,7 +114,7 @@ function InsuranceOpportunityContent(){
     <div className={styles.crumb}>
       <Link href={client ? `/clientes/${client.id}` : "/clientes"}>Cliente 360º</Link>
       <span>/</span>
-      <Link href={`/oportunidades/nuevo?cliente=${clientId}`}>Nueva oportunidad</Link>
+      <Link href={`/oportunidades/nuevo?cliente=${clientId}`}>Nuevo presupuesto</Link>
       <span>/</span>
       <strong>Seguros</strong>
     </div>
