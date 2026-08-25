@@ -8,6 +8,7 @@ export type ClientActivityType =
   | "WhatsApp"
   | "Nota"
   | "Oportunidad"
+  | "Presupuesto"
   | "Operación"
   | "Contrato";
 

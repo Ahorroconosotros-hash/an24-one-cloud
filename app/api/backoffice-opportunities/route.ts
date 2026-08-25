@@ -86,7 +86,9 @@ export async function POST(request: NextRequest) {
       ? await supabaseAdmin.from("one_clients").select("id,name,reference").in("id", clientIds)
       : ({ data: [], error: null } as any);
     if (clientsError) throw clientsError;
-    const clientById = new Map((clients || []).map((c: any) => [String(c.id), c]));
+    const clientById = new Map<string, any>(
+  (clients || []).map((c: any) => [String(c.id), c])
+);
 
     const normalized = opportunities.map((op: any) => ({
       id: op.id,

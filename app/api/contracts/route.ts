@@ -39,7 +39,7 @@ function toClient(row: any) {
   };
 }
 
-const contractSelect = "id,client_id,service_id,service_name,provider,status,start_date,end_date,monthly_value,external_reference,commercial_user_id,commercial_name,original_commercial_user_id,original_commercial_name,last_reassigned_at,last_reassigned_by,last_reassignment_reason,data,created_at,updated_at";
+const contractSelect = "id,reference,client_id,service_id,service_name,provider,status,start_date,end_date,monthly_value,external_reference,commercial_user_id,commercial_name,original_commercial_user_id,original_commercial_name,last_reassigned_at,last_reassigned_by,last_reassignment_reason,data,created_at,updated_at";
 
 async function cupsExists(cups: string, excludeId?: string) {
   const normalized = normalizeCups(cups);
