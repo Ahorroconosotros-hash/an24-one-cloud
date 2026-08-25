@@ -7,7 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 import styles from "./login.module.css";
 
 function homeForRole(role?: string | null) {
-  if (role === "BackOffice") return "/backoffice";
+  if (role === "BackOffice") return "/dashboard";
   if (role === "Comercial") return "/dashboard";
   return "/dashboard";
 }
@@ -140,7 +140,6 @@ export default function LoginPage() {
                   name="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="usuario@empresa.com"
                   autoComplete="username"
                 />
               </div>
@@ -154,7 +153,6 @@ export default function LoginPage() {
                   name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Introduce tu contraseña"
                   autoComplete="current-password"
                 />
               </div>

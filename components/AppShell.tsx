@@ -400,10 +400,11 @@ export default function AppShell({ children }: AppShellProps) {
       ((role === "Administrador" || role === "Comercial") &&
         (pathname === "/oportunidades/nuevo" ||
           pathname.startsWith("/oportunidades/nuevo/") ||
-          /^\/oportunidades\/[^/]+$/.test(pathname)));
+          /^\/oportunidades\/[^/]+$/.test(pathname) ||
+          pathname === "/operaciones/nueva"));
 
     if (!allowed && !contextualAllowed) {
-      router.replace(role === "BackOffice" ? "/backoffice" : "/dashboard");
+      router.replace("/dashboard");
     }
   }, [currentUser, pathname, router]);
 
