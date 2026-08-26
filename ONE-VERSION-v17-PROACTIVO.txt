@@ -1,0 +1,13 @@
+ONE v17 · NÚCLEO PROACTIVO
+
+- Lupa superior convertida en buscador global real.
+- Búsqueda con permisos por rol: clientes, contratos, ofertas y usuarios (Admin).
+- CUPS, referencias, DNI/CIF, teléfono/email incluidos cuando están disponibles.
+- Campana convertida en Centro Proactivo real.
+- Detecta correcciones, tramitaciones pendientes/+48h, renovaciones <=90 días y agenda vencida/hoy.
+- Contador real de asuntos pendientes.
+- Navegación directa al expediente.
+- Atajo Cmd/Ctrl+K para buscar.
+- Versión visual ONE Cloud v0.4.
+
+Base: ONE-BASE-ACTUAL-MAIL.zip recibida el 26/08/2026.

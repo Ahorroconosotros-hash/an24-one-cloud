@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import styles from "./AppShell.module.css";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import GlobalSearch from "@/components/topbar/GlobalSearch";
+import ProactiveCenter from "@/components/topbar/ProactiveCenter";
 
 type AppShellProps = {
   children: ReactNode;
@@ -524,7 +526,7 @@ export default function AppShell({ children }: AppShellProps) {
           <div className={styles.version}>
             <span className={styles.statusDot} />
             <span>ONE Cloud</span>
-            <small>v0.3</small>
+            <small>v0.4</small>
           </div>
         </div>
       </aside>
@@ -550,22 +552,9 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
 
           <div className={styles.topbarActions}>
-            <button
-              type="button"
-              className={styles.actionButton}
-              aria-label="Buscar"
-            >
-              <Icon name="search" />
-            </button>
+            <GlobalSearch triggerClassName={styles.actionButton} />
 
-            <button
-              type="button"
-              className={styles.actionButton}
-              aria-label="Notificaciones"
-            >
-              <Icon name="bell" />
-              <span className={styles.notificationDot} />
-            </button>
+            <ProactiveCenter triggerClassName={styles.actionButton} />
 
             <div className={styles.topbarAccount}>
               <span className={styles.topbarAvatar}>
