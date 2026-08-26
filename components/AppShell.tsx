@@ -298,7 +298,7 @@ function NavigationGroup({
 
           return (
             <Link
-              key={item.href}
+              key={`${item.href}-${item.label}`}
               href={item.href}
               className={`${styles.navItem} ${
                 isActive ? styles.navItemActive : ""

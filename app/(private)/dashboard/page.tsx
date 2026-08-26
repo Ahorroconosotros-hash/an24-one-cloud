@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
-import AdminDashboard from "@/components/dashboard/AdminDashboard";
+import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
 
 const priorities = [
   { n:"01", cls:"danger", eyebrow:"RIESGO DE BAJA", client:"Antonio Ruiz", detail:"Contactar con el cliente y registrar la gestión.", action:"Gestionar" },
