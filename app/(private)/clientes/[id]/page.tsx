@@ -63,7 +63,6 @@ export default function Cliente360Page(){
   async function note(){const v=window.prompt('Escribe la nota:',''); if(v===null||!v.trim()) return; await addTimeline('Nota','Nota añadida',v.trim(),'Interno')}
   async function call(){const v=window.prompt('Resultado / motivo de la llamada:',''); if(v===null) return; await addTimeline('Llamada','Llamada registrada',v||'Sin observaciones','Teléfono'); if(phone) window.location.href=`tel:${phone}`}
   async function whatsapp(){await addTimeline('WhatsApp','Contacto por WhatsApp iniciado','Apertura de WhatsApp Web','WhatsApp'); if(client.mobile) window.open(`https://wa.me/${String(client.mobile).replace(/\D/g,'')}`,'_blank','noopener,noreferrer')}
-  async function email(){await addTimeline('Email','Contacto por email iniciado',client.email||'','Email'); if(client.email) window.location.href=`mailto:${client.email}`}
 
   return <main className={styles.page}>
     <div className={styles.crumb}><Link href="/clientes">Clientes</Link><span>/</span><strong>Cliente 360º</strong></div>
@@ -81,7 +80,7 @@ export default function Cliente360Page(){
     <div className={styles.quickBar}>
       <button onClick={call} disabled={!phone}>☎ Llamar</button>
       <button onClick={whatsapp} disabled={!client.mobile}>WhatsApp</button>
-      <button onClick={email} disabled={!client.email}>Email</button>
+      {client.email ? <Link href={`/correo/redactar?clientId=${encodeURIComponent(client.id)}&to=${encodeURIComponent(client.email)}&name=${encodeURIComponent(client.name)}`}>Email</Link> : <button disabled>Email</button>}
       <button onClick={note}>+ Nota</button>
       <Link href={`/clientes/${client.id}/editar`}>Editar</Link>
       <Link href={`/oportunidades/nuevo?cliente=${encodeURIComponent(client.id)}`}>+ Nueva oferta</Link>

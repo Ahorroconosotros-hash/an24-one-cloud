@@ -1,0 +1,23 @@
+ONE v18 · ONE MAIL
+26/08/2026
+
+- Correo integrado dentro de ONE.
+- Cliente 360 > Email abre ONE Mail y no Gmail/mailto.
+- Bandeja IMAP real.
+- Lectura y respuesta de mensajes dentro de ONE.
+- Envío SMTP real.
+- Carpeta Enviados con trazabilidad de mensajes enviados desde ONE.
+- Cuenta individual por usuario/comercial.
+- Preset Arsys + IMAP/SMTP manual.
+- Firma personal del comercial.
+- Contraseña cifrada AES-256-GCM en servidor.
+- Preparado con tenant_key para evolución multiempresa.
+- Menú Correo para todos los perfiles.
+- Versión visual ONE Cloud v0.5.
+
+Pendiente de siguientes iteraciones ONE Mail:
+- adjuntos y archivado documental automático
+- buzones compartidos
+- OAuth Google / Microsoft
+- asociación automática de entrantes con Cliente/Contrato
+- automatizaciones de correo por cambios de estado

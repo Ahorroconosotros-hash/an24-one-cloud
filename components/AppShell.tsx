@@ -27,7 +27,8 @@ type IconName =
   | "menu"
   | "close"
   | "search"
-  | "bell";
+  | "bell"
+  | "mail";
 
 type OneRole = "Administrador" | "BackOffice" | "Comercial";
 
@@ -86,6 +87,7 @@ const primaryNavigation: NavItem[] = [
     roles: ADMIN_BO,
   },
   { href: "/agenda", label: "Agenda", icon: "calendar", roles: ALL },
+  { href: "/correo", label: "Correo", icon: "mail", roles: ALL },
 ];
 
 const managementNavigation: NavItem[] = [
@@ -269,6 +271,14 @@ function Icon({ name }: { name: IconName }) {
         <svg {...commonProps}>
           <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
           <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+        </svg>
+      );
+
+    case "mail":
+      return (
+        <svg {...commonProps}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="m3 7 9 6 9-6" />
         </svg>
       );
   }
@@ -526,7 +536,7 @@ export default function AppShell({ children }: AppShellProps) {
           <div className={styles.version}>
             <span className={styles.statusDot} />
             <span>ONE Cloud</span>
-            <small>v0.4</small>
+            <small>v0.5</small>
           </div>
         </div>
       </aside>
