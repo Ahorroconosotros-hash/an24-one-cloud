@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import AdminDashboard from "@/components/dashboard/AdminDashboard";
 
 const priorities = [
   { n:"01", cls:"danger", eyebrow:"RIESGO DE BAJA", client:"Antonio Ruiz", detail:"Contactar con el cliente y registrar la gestión.", action:"Gestionar" },
@@ -17,17 +18,36 @@ const agenda = [
 ];
 
 
+type DashboardClient = {
+  id:string; reference?:string; status?:string; name?:string; phone?:string; mobile?:string; email?:string; updatedAt?:string; createdAt?:string;
+};
+
+type DashboardAgendaEvent = {
+  id:string;
+  title:string;
+  event_type:string;
+  description?:string|null;
+  starts_at:string;
+  status:string;
+  priority:string;
+  client_id?:string|null;
+  opportunity_id?:string|null;
+};
+
 type ForecastContract = {
   id: string;
   service_name?: string;
   status?: string;
   activation_date?: string;
+  end_date?: string;
+  provider?: string;
   data?: {
     product_name?: string;
     commission_commercial?: number;
     activation_date?: string;
+    renewal_date?: string; expiry_date?: string; contract_end_date?: string;
   };
-  client?: { name?: string } | null;
+  client?: { id?: string; name?: string; reference?: string } | null;
 };
 
 const COMMISSION_PAYMENT_RULES: Record<string, number> = {
@@ -65,6 +85,13 @@ function monthLabel(date: Date) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+function daysUntil(date: Date) {
+  const today=new Date();
+  const start=new Date(today.getFullYear(),today.getMonth(),today.getDate(),12);
+  const end=new Date(date.getFullYear(),date.getMonth(),date.getDate(),12);
+  return Math.ceil((end.getTime()-start.getTime())/86400000);
+}
+
 export default function MiDiaPage() {
   const [userName, setUserName] = useState("...");
   const [userRole, setUserRole] = useState<"Administrador" | "BackOffice" | "Comercial" | "">("");
@@ -72,6 +99,10 @@ export default function MiDiaPage() {
   const [commercialLoaded, setCommercialLoaded] = useState(false);
   const [forecastContracts,setForecastContracts]=useState<ForecastContract[]>([]);
   const [forecastLoaded,setForecastLoaded]=useState(false);
+  const [commercialClients,setCommercialClients]=useState<DashboardClient[]>([]);
+  const [clientsLoaded,setClientsLoaded]=useState(false);
+  const [agendaEvents,setAgendaEvents]=useState<DashboardAgendaEvent[]>([]);
+  const [agendaLoaded,setAgendaLoaded]=useState(false);
 
 
   useEffect(() => {
@@ -144,6 +175,47 @@ export default function MiDiaPage() {
     (async()=>{
       try{
         const {data:{session}}=await supabaseBrowser.auth.getSession();
+        const response=await fetch("/api/one-clients",{headers:{Authorization:`Bearer ${session?.access_token||""}`},cache:"no-store"});
+        const result=await response.json();
+        if(!response.ok||!result?.ok) throw new Error(result?.error||"No se pudieron cargar los clientes");
+        if(!cancelled){setCommercialClients(result.clients||[]);setClientsLoaded(true);}
+      }catch{ if(!cancelled){setCommercialClients([]);setClientsLoaded(true);} }
+    })();
+    return()=>{cancelled=true};
+  },[userRole]);
+
+  useEffect(()=>{
+    if(userRole!=="Comercial") return;
+    let cancelled=false;
+    (async()=>{
+      try{
+        const {data:{session}}=await supabaseBrowser.auth.getSession();
+        const response=await fetch("/api/agenda-events",{
+          headers:{Authorization:`Bearer ${session?.access_token||""}`},
+          cache:"no-store"
+        });
+        const result=await response.json();
+        if(!response.ok||!result?.ok) throw new Error(result?.error||"No se pudo cargar la agenda");
+        if(!cancelled){
+          setAgendaEvents(result.events||[]);
+          setAgendaLoaded(true);
+        }
+      }catch{
+        if(!cancelled){
+          setAgendaEvents([]);
+          setAgendaLoaded(true);
+        }
+      }
+    })();
+    return()=>{cancelled=true};
+  },[userRole]);
+
+  useEffect(()=>{
+    if(userRole!=="Comercial") return;
+    let cancelled=false;
+    (async()=>{
+      try{
+        const {data:{session}}=await supabaseBrowser.auth.getSession();
         const response=await fetch("/api/contracts",{headers:{Authorization:`Bearer ${session?.access_token||""}`},cache:"no-store"});
         const result=await response.json();
         if(!response.ok||!result?.ok) throw new Error(result?.error||"No se pudieron cargar los contratos");
@@ -190,7 +262,89 @@ export default function MiDiaPage() {
   const nextForecast=commissionForecast.find(g=>g.key===monthKey(nextPayMonth));
   const forecastTotal=commissionForecast.reduce((sum,g)=>sum+g.amount,0);
 
+  const renewalContracts=useMemo(()=>{
+    return forecastContracts
+      .filter(c=>String(c.status||"")==="Activo")
+      .map(c=>{
+        const expiry=parseIsoDate(c.end_date||c.data?.renewal_date||c.data?.expiry_date||c.data?.contract_end_date);
+        if(!expiry) return null;
+        const days=daysUntil(expiry);
+        if(days<0||days>30) return null;
+
+        return {
+          id:c.id,
+          clientId:c.client?.id||"",
+          client:c.client?.name||"Cliente",
+          service:c.service_name||"Contrato",
+          provider:c.provider||"",
+          expiry,
+          days,
+        };
+      })
+      .filter(Boolean)
+      .sort((a:any,b:any)=>a.days-b.days) as Array<{id:string;clientId:string;client:string;service:string;provider:string;expiry:Date;days:number}>;
+  },[forecastContracts]);
+
+  const coreServices=["Energía","Telefonía","Alarmas","Seguros"] as const;
+  const normalizeService=(value:string)=>String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("es");
+  const currentContracts=forecastContracts.filter(c=>!["Borrador","Anulado","Baja"].includes(String(c.status||"")));
+  const activeContracts=currentContracts.filter(c=>String(c.status||"")==="Activo");
+  const contractsInProgress=currentContracts.filter(c=>["Pendiente de tramitación","En tramitación","Tramitado en compañía","Pendiente de activación","Pendiente activación"].includes(String(c.status||"")));
+
+  const servicesByClient=useMemo(()=>{
+    const map=new Map<string,Set<string>>();
+    for(const c of activeContracts){
+      const clientId=String((c as any).client?.id||"");
+      if(!clientId) continue;
+      const set=map.get(clientId)||new Set<string>();
+      set.add(normalizeService(c.service_name||"")); map.set(clientId,set);
+    }
+    return map;
+  },[forecastContracts]);
+
+  const crossSellCandidates=useMemo(()=>commercialClients.map(client=>{
+    const have=servicesByClient.get(client.id); if(!have||have.size===0) return null;
+    const missing=coreServices.filter(service=>!have.has(normalizeService(service))); if(!missing.length) return null;
+    const haveLabels=coreServices.filter(service=>have.has(normalizeService(service)));
+    return {client,have:haveLabels,missing};
+  }).filter(Boolean).slice(0,8) as Array<{client:DashboardClient;have:readonly string[];missing:readonly string[]}>,[commercialClients,servicesByClient]);
+
+  const prospectFollowUps=useMemo(()=>{
+    const now=Date.now();
+    return commercialClients.filter(c=>String(c.status||"").toLocaleLowerCase("es")==="prospecto").map(c=>{
+      const d=new Date(c.updatedAt||c.createdAt||0); const days=Number.isNaN(d.getTime())?0:Math.max(0,Math.floor((now-d.getTime())/86400000));
+      return {...c,days};
+    }).sort((a,b)=>b.days-a.days).slice(0,8);
+  },[commercialClients]);
+
+  const todayAgenda=useMemo(()=>{
+    const now=new Date();
+    const y=now.getFullYear(),m=now.getMonth(),d=now.getDate();
+    return agendaEvents
+      .filter(e=>String(e.status||"")!=="Completada")
+      .filter(e=>{
+        const dt=new Date(e.starts_at);
+        return dt.getFullYear()===y&&dt.getMonth()===m&&dt.getDate()===d;
+      })
+      .sort((a,b)=>new Date(a.starts_at).getTime()-new Date(b.starts_at).getTime());
+  },[agendaEvents]);
+
+  const overdueAgenda=useMemo(()=>{
+    const now=Date.now();
+    return agendaEvents
+      .filter(e=>String(e.status||"")!=="Completada")
+      .filter(e=>new Date(e.starts_at).getTime()<now)
+      .filter(e=>!todayAgenda.some(today=>today.id===e.id))
+      .sort((a,b)=>new Date(a.starts_at).getTime()-new Date(b.starts_at).getTime());
+  },[agendaEvents,todayAgenda]);
+
+  const actionCount=(commercialStats.corrections||0)+(commercialStats.tickets||0)+renewalContracts.length+prospectFollowUps.length+crossSellCandidates.length+todayAgenda.length+overdueAgenda.length;
+
   const opportunitiesHref = userRole === "Comercial" ? "/comercial/oportunidades" : "/oportunidades";
+
+  if (userRole === "Administrador") {
+    return <AdminDashboard userName={userName} />;
+  }
 
   return (
     <>
@@ -222,9 +376,18 @@ export default function MiDiaPage() {
         .mdForecastGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
         .mdForecastMonth{border:1px solid var(--line);border-radius:12px;background:#fcfbfa;padding:12px}.mdForecastMonth span{display:block;font-size:9px;font-weight:900;letter-spacing:.07em;color:var(--muted)}.mdForecastMonth b{display:block;margin-top:5px;font-size:20px}.mdForecastMonth small{display:block;margin-top:3px;color:var(--muted);font-size:10px}
         .mdForecastRule{margin-top:10px;padding:9px 10px;border-radius:10px;background:#fff8f3;border:1px solid #f0d8ca;font-size:10px;color:#765b4d;line-height:1.5}
+        .mdRenewals{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:13px}
+        .mdRenewalList{display:grid;gap:8px;margin-top:11px}
+        .mdRenewalRow{display:grid;grid-template-columns:minmax(0,1.4fr) .8fr .8fr auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:#fcfbfa}
+        .mdRenewalRow b{display:block;font-size:12px}.mdRenewalRow small{display:block;margin-top:3px;font-size:10px;color:var(--muted)}
+        .mdRenewalDate span{display:block;font-size:9px;font-weight:900;color:var(--muted);letter-spacing:.07em}.mdRenewalDate strong{display:block;margin-top:3px;font-size:12px}
+        .mdRenewalDays{font-size:10px;font-weight:950;color:#b85b19;background:#fff2df;border:1px solid #f3dbc0;border-radius:999px;padding:6px 8px;white-space:nowrap}
+        .mdSalesHero{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;margin-bottom:13px}.mdActionPanel{border:1px solid #f1d9d5;background:linear-gradient(120deg,#fff 55%,#fff3e8);border-radius:16px;padding:17px}.mdActionPanel h2{margin:5px 0 4px;font-size:22px}.mdActionPanel p{margin:0;color:var(--muted);font-size:11px}.mdActionNumber{font-size:36px;font-weight:950;letter-spacing:-.05em;color:#e4472e}.mdQuickActions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:13px}.mdQuickActions a{padding:11px;border:1px solid var(--line);border-radius:11px;background:#fff;font-size:11px;font-weight:900;text-align:center}.mdQuickActions a:first-child{color:#fff;background:linear-gradient(110deg,#ffad1f,var(--r));border:0}
+        .mdRadar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-bottom:13px}.mdRadarCard{border:1px solid var(--line);border-radius:13px;background:#fff;padding:13px}.mdRadarCard span{font-size:9px;font-weight:900;letter-spacing:.07em;color:var(--muted)}.mdRadarCard b{display:block;font-size:25px;margin:5px 0 3px}.mdRadarCard small{font-size:10px;color:var(--muted);line-height:1.35}
+        .mdSalesGrid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:13px}.mdSalesList{border:1px solid var(--line);background:#fff;border-radius:16px;padding:16px}.mdSalesRows{display:grid;gap:7px;margin-top:10px}.mdSalesRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px 11px;background:#fcfbfa}.mdSalesRow b{display:block;font-size:12px}.mdSalesRow small{display:block;margin-top:3px;color:var(--muted);font-size:10px;line-height:1.35}.mdSalesTag{font-size:9px;font-weight:900;color:#b65328;background:#fff2e8;border:1px solid #f1d6c7;border-radius:999px;padding:5px 7px;white-space:nowrap}
 
-        @media(max-width:1000px){.mdForecastGrid{grid-template-columns:1fr 1fr}.mdTickets{grid-template-columns:1fr}.mdPriorities,.mdStats{grid-template-columns:repeat(2,1fr)}.mdGrid,.mdBottom{grid-template-columns:1fr}}
-        @media(max-width:650px){.mdForecastGrid{grid-template-columns:1fr}.mdForecastHead{flex-direction:column}.mdForecastTotal{text-align:left}.md{padding:16px 0}.mdHero{align-items:flex-start;flex-direction:column}.mdHero h1{font-size:27px}.mdButtons{width:100%;flex-wrap:wrap}.mdStats,.mdPriorities,.mdQuick{grid-template-columns:1fr}.mdBtn{flex:1}}
+        @media(max-width:1000px){.mdRadar{grid-template-columns:repeat(2,1fr)}.mdSalesGrid,.mdSalesHero{grid-template-columns:1fr}.mdForecastGrid{grid-template-columns:1fr 1fr}.mdTickets{grid-template-columns:1fr}.mdPriorities,.mdStats{grid-template-columns:repeat(2,1fr)}.mdGrid,.mdBottom{grid-template-columns:1fr}}
+        @media(max-width:650px){.mdRadar,.mdQuickActions{grid-template-columns:1fr}.mdRenewalRow{grid-template-columns:1fr}.mdForecastGrid{grid-template-columns:1fr}.mdForecastHead{flex-direction:column}.mdForecastTotal{text-align:left}.md{padding:16px 0}.mdHero{align-items:flex-start;flex-direction:column}.mdHero h1{font-size:27px}.mdButtons{width:100%;flex-wrap:wrap}.mdStats,.mdPriorities,.mdQuick{grid-template-columns:1fr}.mdBtn{flex:1}}
       `}</style>
 
       <main className="md">
@@ -235,12 +398,27 @@ export default function MiDiaPage() {
             <p>Todo lo importante para empezar a trabajar, de un vistazo.</p>
           </div>
           <div className="mdButtons">
-            <Link className="mdBtn" href="/clientes/nuevo">+ Nuevo cliente</Link>
-            <Link className="mdBtn mdBtnPrimary" href="/oportunidades/nuevo">+ Nueva oportunidad</Link>
+            <Link className="mdBtn" href="/clientes/prospecto/nuevo">+ Prospecto</Link>
+            <Link className="mdBtn mdBtnPrimary" href="/oportunidades/nuevo">+ Presupuesto</Link>
           </div>
         </section>
 
-        {userRole === "Comercial" ? (
+        {userRole === "Comercial" ? (<>
+          <section className="mdSalesHero">
+            <article className="mdActionPanel"><div className="mdKicker">TU MOTOR COMERCIAL</div><h2>{actionCount} oportunidades de acción</h2><p>Clientes, prospectos y contratos que puedes mover hoy para vender más.</p><div className="mdQuickActions"><Link href="/clientes/prospecto/nuevo">+ Crear prospecto</Link><Link href="/oportunidades/nuevo">+ Crear presupuesto</Link><Link href="/clientes">Buscar en mi cartera</Link></div></article>
+            <article className="mdActionPanel"><div className="mdKicker">PRÓXIMO COBRO PREVISTO</div><div className="mdActionNumber">{forecastLoaded?`${Number(nextForecast?.amount||0).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})} €`:"…"}</div><p>Comisiones previstas para el próximo mes según contratos activos y fecha de activación.</p></article>
+          </section>
+          <section className="mdRadar">
+            <Link href="/agenda" className="mdRadarCard">
+              <span>AGENDA · HOY</span>
+              <b>{agendaLoaded?todayAgenda.length:"…"}</b>
+              <small>Tareas, llamadas, visitas y seguimientos programados para hoy.</small>
+            </Link>
+            <Link href="/comercial/contratos" className="mdRadarCard"><span>RENOVACIONES · 30 DÍAS</span><b>{forecastLoaded?renewalContracts.length:"…"}</b><small>Contacta antes de que llegue el vencimiento.</small></Link>
+            <Link href="/clientes" className="mdRadarCard"><span>PROSPECTOS A MOVER</span><b>{clientsLoaded?prospectFollowUps.length:"…"}</b><small>Prospectos de tu cartera que conviene recuperar.</small></Link>
+            <Link href="/clientes" className="mdRadarCard"><span>VENTA CRUZADA</span><b>{clientsLoaded&&forecastLoaded?crossSellCandidates.length:"…"}</b><small>Clientes activos con servicios que todavía no tienen contigo.</small></Link>
+            <Link href="/comercial/contratos" className="mdRadarCard"><span>CONTRATOS EN CURSO</span><b>{forecastLoaded?contractsInProgress.length:"…"}</b><small>Tramitaciones y activaciones que requieren seguimiento.</small></Link>
+          </section>
           <section className="mdPanel">
             <div className="mdPanelHead">
               <div><div className="mdKicker">PRIORIDADES</div><h2>Tu trabajo pendiente</h2></div>
@@ -254,11 +432,26 @@ export default function MiDiaPage() {
                 <div className="mdNum">02</div><div><strong>TICKETS ABIERTOS</strong><b>{commercialStats.tickets}</b><small>Incidencias asociadas únicamente a tus operaciones.</small></div><div className="mdAction">Gestionar →</div>
               </Link>
               <Link href="/comercial/oportunidades" className="mdPriority notice">
-                <div className="mdNum">03</div><div><strong>OPORTUNIDADES</strong><b>{commercialStats.opportunities}</b><small>Tu cartera comercial visible en ONE.</small></div><div className="mdAction">Ver →</div>
+                <div className="mdNum">03</div><div><strong>PRESUPUESTOS</strong><b>{commercialLoaded?commercialStats.opportunities:"…"}</b><small>Propuestas de tu cartera que puedes seguir moviendo.</small></div><div className="mdAction">Seguir →</div>
               </Link>
             </div>
           </section>
-        ) : (<>        <section className="mdPanel">
+
+          <section className="mdRenewals">
+            <div className="mdPanelHead">
+              <div><div className="mdKicker">RENOVACIONES · PRÓXIMOS 30 DÍAS</div><h2>Contratos que conviene trabajar ya</h2><p>ONE te avisa con un mes de antelación para contactar al cliente, revisar condiciones y preparar una nueva propuesta.</p></div>
+              <div className="mdPill">{forecastLoaded?`${renewalContracts.length} próxima${renewalContracts.length===1?"":"s"}`:"…"}</div>
+            </div>
+            {!forecastLoaded?<div style={{fontSize:11,color:"var(--muted)"}}>Revisando vencimientos…</div>:
+            renewalContracts.length===0?<div style={{fontSize:11,color:"var(--muted)",padding:"10px 0"}}>No tienes contratos con vencimiento en los próximos 30 días.</div>:
+            <div className="mdRenewalList">{renewalContracts.slice(0,6).map(r=><Link href={r.clientId?`/clientes/${r.clientId}`:`/contratos/${r.id}`} className="mdRenewalRow" key={r.id}>
+              <div><b>{r.client}</b><small>{r.service}{r.provider?` · ${r.provider}`:""}</small></div>
+              <div className="mdRenewalDate"><span>VENCIMIENTO</span><strong>{new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).format(r.expiry)}</strong></div>
+              <div className="mdRenewalDate"><span>TIEMPO PARA GESTIONAR</span><strong>{r.days===0?"Vence hoy":`${r.days} días`}</strong></div>
+              <span className="mdRenewalDays">Gestionar renovación →</span>
+            </Link>)}</div>}
+          </section>
+        </>) : (<>        <section className="mdPanel">
           <div className="mdPanelHead">
             <div><div className="mdKicker">PRIORIDADES</div><h2>Hoy debes hacer esto</h2></div>
             <div className="mdPill">3 pendientes</div>
@@ -317,8 +510,12 @@ export default function MiDiaPage() {
         </section></>)}
 
         {userRole === "Comercial" ? (<>
+          <section className="mdSalesGrid">
+            <article className="mdSalesList"><div className="mdPanelHead"><div><div className="mdKicker">VENTA CRUZADA</div><h2>Clientes donde puedes vender más</h2><p>ONE detecta qué servicios tienen y cuáles no constan contratados.</p></div></div>{!clientsLoaded||!forecastLoaded?<div style={{fontSize:11,color:"var(--muted)"}}>Analizando tu cartera…</div>:crossSellCandidates.length===0?<div style={{fontSize:11,color:"var(--muted)"}}>No hay oportunidades claras de venta cruzada con los datos actuales.</div>:<div className="mdSalesRows">{crossSellCandidates.slice(0,5).map(item=><Link href={`/clientes/${item.client.id}`} className="mdSalesRow" key={item.client.id}><div><b>{item.client.name||"Cliente"}</b><small>Tiene: {item.have.join(", ")} · Puedes explorar: {item.missing.join(", ")}</small></div><span className="mdSalesTag">Abrir cliente →</span></Link>)}</div>}</article>
+            <article className="mdSalesList"><div className="mdPanelHead"><div><div className="mdKicker">PROSPECTOS</div><h2>Personas que no debes dejar enfriar</h2><p>Priorizados por el tiempo que llevan sin actualizarse.</p></div></div>{!clientsLoaded?<div style={{fontSize:11,color:"var(--muted)"}}>Cargando prospectos…</div>:prospectFollowUps.length===0?<div style={{fontSize:11,color:"var(--muted)"}}>No tienes prospectos pendientes.</div>:<div className="mdSalesRows">{prospectFollowUps.slice(0,5).map(item=><Link href={`/clientes/${item.id}`} className="mdSalesRow" key={item.id}><div><b>{item.name||"Prospecto"}</b><small>{item.mobile||item.phone||item.email||"Sin contacto"} · {item.days===0?"Actualizado hoy":`${item.days} días sin actualizar`}</small></div><span className="mdSalesTag">Contactar →</span></Link>)}</div>}</article>
+          </section>
           <section className="mdStats">
-            <div className="mdStat"><div className="mdStatTop"><span>MIS OPORTUNIDADES</span><i className="mdDot"/></div><b>{commercialLoaded ? commercialStats.opportunities : "…"}</b><small>Solo las asignadas a ti</small></div>
+            <div className="mdStat"><div className="mdStatTop"><span>MIS PRESUPUESTOS</span><i className="mdDot"/></div><b>{commercialLoaded ? commercialStats.opportunities : "…"}</b><small>Solo los de tu cartera</small></div>
             <div className="mdStat"><div className="mdStatTop"><span>ACTIVACIONES</span><i className="mdDot"/></div><b>{commercialLoaded ? commercialStats.activated : "…"}</b><small>Tus operaciones activadas</small></div>
             <div className="mdStat"><div className="mdStatTop"><span>CORRECCIONES</span><i className="mdDot"/></div><b>{commercialLoaded ? commercialStats.corrections : "…"}</b><small>Pendientes de tu gestión</small></div>
             <div className="mdStat"><div className="mdStatTop"><span>OBJETIVO</span><i className="mdDot"/></div><b>—</b><small>Sin objetivo individual configurado</small></div>
@@ -343,8 +540,44 @@ export default function MiDiaPage() {
 
         {userRole === "Comercial" ? (
           <section className="mdPanel">
-            <div className="mdPanelHead"><div><div className="mdKicker">OBJETIVOS Y AGENDA</div><h2>Datos personales del comercial</h2></div></div>
-            <div style={{fontSize:11,color:"var(--muted)",lineHeight:1.7}}>No mostramos cifras de demostración compartidas. El objetivo y la agenda aparecerán aquí cuando estén vinculados al usuario comercial real. La previsión de comisiones se calcula desde tus contratos activos.</div>
+            <div className="mdPanelHead">
+              <div>
+                <div className="mdKicker">MI AGENDA · HOY</div>
+                <h2>Lo que tienes programado</h2>
+              </div>
+              <Link className="mdAction" href="/agenda">Abrir agenda →</Link>
+            </div>
+
+            {!agendaLoaded ? (
+              <div style={{fontSize:11,color:"var(--muted)"}}>Cargando tu agenda…</div>
+            ) : todayAgenda.length===0 && overdueAgenda.length===0 ? (
+              <div style={{fontSize:11,color:"var(--muted)",padding:"8px 0"}}>
+                No tienes tareas pendientes para hoy.
+              </div>
+            ) : (
+              <div className="mdAgenda">
+                {overdueAgenda.slice(0,3).map(ev=>(
+                  <Link href="/agenda" className="mdAgendaRow" key={ev.id}>
+                    <time style={{color:"#c73b2d"}}>VENCIDA</time>
+                    <div>
+                      <b>{ev.title}</b>
+                      <small>{ev.event_type}{ev.description?` · ${ev.description}`:""}</small>
+                    </div>
+                    <span className="mdArrow">→</span>
+                  </Link>
+                ))}
+                {todayAgenda.slice(0,6).map(ev=>(
+                  <Link href="/agenda" className="mdAgendaRow" key={ev.id}>
+                    <time>{new Intl.DateTimeFormat("es-ES",{hour:"2-digit",minute:"2-digit"}).format(new Date(ev.starts_at))}</time>
+                    <div>
+                      <b>{ev.title}</b>
+                      <small>{ev.event_type}{ev.priority&&ev.priority!=="Normal"?` · ${ev.priority}`:""}{ev.description?` · ${ev.description}`:""}</small>
+                    </div>
+                    <span className="mdArrow">→</span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </section>
         ) : (<>        <section className="mdGrid">
           <article className="mdPanel">

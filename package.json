@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "cloud": "zsh scripts/cloud-sync.sh"
+    "cloud": "zsh scripts/cloud-sync.sh",
+    "dev:cloud": "zsh scripts/dev-cloud.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
